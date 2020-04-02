@@ -53,6 +53,11 @@ def k_means(items, k, *, seed=None):
 	n, dimensions = items.shape
 	dtype = items.dtype
 
+	# TODO: read path from a param
+	# TODO: Load image + reshape in analyse_img
+	weight_map = cv2.imread("chair-weight-map.png", 0).astype(np.float32)
+	weight_map = weight_map.reshape((n,))
+
 	# Initialise centers randomly
 	# TODO: K-Means++ initialisation
 	indices = rng.choice(range(n), k, False)
@@ -63,13 +68,14 @@ def k_means(items, k, *, seed=None):
 		center_totals = np.zeros((k, dimensions), dtype=dtype)
 
 		# Number of points matched to each center
-		center_matches = np.zeros(k, dtype=np.uint32)
+		center_matches = np.zeros(k, dtype=np.float32)
 
-		for item in items:
+		for item, weight in zip(items, weight_map):
+			# print(item, weight)
 			close_idx = find_closest(item, centers)
 
-			center_matches[close_idx] += 1
-			center_totals[close_idx] += item
+			center_matches[close_idx] += weight
+			center_totals[close_idx] += item * weight
 
 		# Calculate each center's mean value
 		center_means = np.copy(center_totals)
@@ -78,7 +84,7 @@ def k_means(items, k, *, seed=None):
 			if center_matches[i] == 0:
 				# raise ZeroDivisionError("A cluster had no matches")
 				# If a center has no matches, set it to a random point in the dataset
-				centers_means[i] = items[rng.choice(range(n), 1)]
+				center_means[i] = items[rng.choice(range(n), 1)]
 				reset_center = True
 				continue
 
@@ -452,6 +458,7 @@ if __name__ == "__main__":
 		help="Print more debug info to stdout");
 	# TODO: Option to output palette as an image
 	# TODO: Option to force no repeat colours in the palette (increment seed until no repeats)
+	# TODO: Option to manually set a palette (image where 1 pixel=1 colour?)
 
 	args = parser.parse_args()
 
