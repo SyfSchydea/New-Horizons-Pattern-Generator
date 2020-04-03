@@ -261,7 +261,7 @@ def get_duplicate_colours(palette):
 # param channel_name - Name of this channel in the colour space.
 # param header_width - Characters to reserve at the start of
 #                      each line for the names of channels.
-# param palette      - Array of New Horizons coloursd.
+# param palette      - Array of New Horizons colours.
 def _write_palette_channel(file, channel_idx, channel_name, header_width, palette):
 	file.write(channel_name.rjust(header_width) + ": ")
 
@@ -362,6 +362,54 @@ class Log:
 		if self.verbosity >= Log.DEBUG:
 			print(*msg, file=self.file)
 
+def get_rng_seed():
+	np.random.seed()
+	return np.random.randint(2 ** 32 - 1)
+
+# Take an image in Lab colour space, and output a colour palette in NH colours
+#
+# param img           - Input Lab image.
+# param palette_size  - Number of colours to use in the palette.
+# param seed          - Starting RNG seed.
+# param retry_on_dupe - If truthy, when a palette containing a duplicate colour
+#                       is generated, the rng seed will be incremented, and the
+#                       process will repeat until a unique palette is returned.
+# param log           - Log to use to output info.
+#
+# return              - NH Palette as array.
+def pick_palette(img, palette_size, seed, *, retry_on_dupe=False, log=Log(Log.ERROR)):
+	# Generate colour palette using K-Means
+	log.info("Finding suitable colour palette...")
+	height, width, depth = img.shape
+	colours = img.reshape((height * width, depth))
+	while True:
+		colour_palette = k_means(colours, palette_size, seed=seed)
+		log.debug("Lab Palette:", colour_palette)
+
+		# Convert the palette into HSV
+		log.info("Converting palette to HSV...")
+		hsv_palette = convert_palette(colour_palette, cv2.COLOR_Lab2RGB, cv2.COLOR_RGB2HSV)
+		log.debug("HSV Palette:", hsv_palette)
+
+		# Round to ACNH's colour space
+		log.info("Converting to NH colours...")
+		nh_palette = palette_hsv_to_nh(hsv_palette)
+
+		# Check if any colours are identical after rounding
+		duplicate_colours = get_duplicate_colours(nh_palette)
+		if len(duplicate_colours) <= 0:
+			return nh_palette
+
+		# TODO: Alternative option to do some non-standard rounding to achieve a unique palette, rather than just retrying.
+
+		if not retry_on_dupe:
+			# TODO: Allow stacking of --quiet to hide warnings too
+			log.warn("Repeated colours in palette:", *duplicate_colours)
+			return nh_palette
+
+		seed += 1
+		log.info("Palette has duplicate colours. Retrying with seed:", seed)
+
 def analyse_img(path, img_out, instr_out, *, verbosity=Log.INFO, seed=None):
 	# NH allows 15 colours + transparent
 	PALETTE_SIZE = 15
@@ -373,7 +421,7 @@ def analyse_img(path, img_out, instr_out, *, verbosity=Log.INFO, seed=None):
 	log = Log(verbosity)
 
 	if seed is None:
-		seed = np.random.randint(2 ** 32 - 1)
+		seed = get_rng_seed()
 		log.info("Using seed:", seed)
 
 	# Input image as BGR(255)
@@ -386,28 +434,8 @@ def analyse_img(path, img_out, instr_out, *, verbosity=Log.INFO, seed=None):
 	log.info("Converting to Lab...")
 	img_lab = cv2.cvtColor(img_raw.astype(np.float32) / 255, cv2.COLOR_BGR2Lab)
 
-	# Generate colour palette using K-Means
-	log.info("Finding suitable colour palette...")
-	height, width, depth = img_lab.shape
-	colours = img_lab.reshape((height * width, depth))
-	colour_palette = k_means(colours, PALETTE_SIZE, seed=seed)
-	log.debug("Lab Palette:", colour_palette)
-
-	# Convert the palette into HSV
-	log.info("Converting palette to HSV...")
-	hsv_palette = convert_palette(colour_palette, cv2.COLOR_Lab2RGB, cv2.COLOR_RGB2HSV)
-	log.debug("HSV Palette:", hsv_palette)
-
-	# Round to ACNH's colour space
-	log.info("Converting to NH colours...")
-	nh_palette = palette_hsv_to_nh(hsv_palette)
-
-	# Check if any colours are identical after rounding
-	# TODO: Option to automatically advance seed and retry if there is >=1 duplicate
-	duplicate_colours = get_duplicate_colours(nh_palette)
-	if len(duplicate_colours) > 0:
-		# TODO: Allow stacking of --quiet to hide warnings too
-		log.warn("Repeated colours in palette:", *duplicate_colours)
+	# TODO: parameter for retry_on_dupe
+	nh_palette = pick_palette(img_lab, PALETTE_SIZE, seed, retry_on_dupe=True, log=log);
 
 	# Convert the NH colours to BGR(1) to Lab
 	hsv_approximated = palette_nh_to_hsv(nh_palette)
@@ -434,8 +462,6 @@ def analyse_img(path, img_out, instr_out, *, verbosity=Log.INFO, seed=None):
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description=
 		"Convert an image to a New Horizons custom pattern")
-
-	# TODO: Option to pass a weight map, to allow some areas to be given higher priority when performing k-means to choose a palette
 
 	parser.add_argument("input-file", help="Path to input image")
 	parser.add_argument("-o", "--out", default="nh-pattern.png",
