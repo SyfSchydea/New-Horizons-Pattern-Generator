@@ -265,6 +265,7 @@ def get_duplicate_colours(palette):
 def _write_palette_channel(file, channel_idx, channel_name, header_width, palette):
 	file.write(channel_name.rjust(header_width) + ": ")
 
+	# TODO: use 'join' to avoid trailing spaces at the end of the line
 	for colour in palette:
 		file.write(str(colour[channel_idx]).rjust(2) + "  ")
 
