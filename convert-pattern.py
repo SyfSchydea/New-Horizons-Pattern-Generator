@@ -47,14 +47,11 @@ def find_closest(item, centers):
 # param k     - Number of clusters to find.
 #
 # return      - k*m array of cluster centers.
-def k_means(items, k, *, seed=None):
+def k_means(items, k, weight_map, *, seed=None):
 	rng = np.random.RandomState(seed)
 
 	n, dimensions = items.shape
 	dtype = items.dtype
-
-	weight_map = cv2.imread("chair-weight-map.png", 0).astype(np.float32)
-	weight_map = weight_map.reshape((n,))
 
 	# Initialise centers randomly
 	indices = rng.choice(range(n), k, False)
@@ -373,13 +370,16 @@ def get_rng_seed():
 # param log           - Log to use to output info.
 #
 # return              - NH Palette as array.
-def pick_palette(img, palette_size, seed, *, retry_on_dupe=False, log=Log(Log.ERROR)):
+def pick_palette(img, palette_size, seed, weight_map, *, retry_on_dupe=False, log=Log(Log.ERROR)):
 	# Generate colour palette using K-Means
 	log.info("Finding suitable colour palette...")
 	height, width, depth = img.shape
 	colours = img.reshape((height * width, depth))
+
+	weight_map = weight_map.reshape((height * width,))
+
 	while True:
-		colour_palette = k_means(colours, palette_size, seed=seed)
+		colour_palette = k_means(colours, palette_size, weight_map, seed=seed)
 		log.debug("Lab Palette:", colour_palette)
 
 		# Convert the palette into HSV
@@ -403,7 +403,7 @@ def pick_palette(img, palette_size, seed, *, retry_on_dupe=False, log=Log(Log.ER
 		seed += 1
 		log.info("Palette has duplicate colours. Retrying with seed:", seed)
 
-def analyse_img(path, img_out, instr_out, *, verbosity=Log.INFO, seed=None, retry_on_dupe=False):
+def analyse_img(path, weight_map_path, img_out, instr_out, *, verbosity=Log.INFO, seed=None, retry_on_dupe=False):
 	# NH allows 15 colours + transparent
 	PALETTE_SIZE = 15
 
@@ -424,7 +424,10 @@ def analyse_img(path, img_out, instr_out, *, verbosity=Log.INFO, seed=None, retr
 	log.info("Converting to Lab...")
 	img_lab = cv2.cvtColor(img_raw.astype(np.float32) / 255, cv2.COLOR_BGR2Lab)
 
-	nh_palette = pick_palette(img_lab, PALETTE_SIZE, seed, retry_on_dupe=retry_on_dupe, log=log);
+	weight_map = cv2.imread(weight_map_path, 0).astype(np.float32)
+
+	nh_palette = pick_palette(img_lab, PALETTE_SIZE, seed, weight_map,
+		retry_on_dupe=retry_on_dupe, log=log)
 
 	# Convert the NH colours to BGR(1) to Lab
 	hsv_approximated = palette_nh_to_hsv(nh_palette)
@@ -458,6 +461,9 @@ if __name__ == "__main__":
 	parser.add_argument("-i", "--instructions-out", default="nh-pattern-instructions.txt",
 		help="Path to save pattern instructions")
 
+	parser.add_argument("-w", "--weight-map",
+		help="Map of pixel weights for palette selection")
+
 	parser.add_argument("-r", "--retry-duplicate", action="store_true",
 		help="Retry palette generation until there are no duplicate colours")
 
@@ -481,7 +487,8 @@ if __name__ == "__main__":
 		verbosity += 1
 
 	try:
-		analyse_img(input_file, img_out=args.out, instr_out=args.instructions_out,
+		analyse_img(input_file, weight_map_path=args.weight_map,
+			img_out=args.out, instr_out=args.instructions_out,
 			verbosity=verbosity, seed=args.seed, retry_on_dupe=args.retry_duplicate);
 	except FileNotFoundError:
 		sys.stderr.write("File does not exist or is not a valid image\n")
