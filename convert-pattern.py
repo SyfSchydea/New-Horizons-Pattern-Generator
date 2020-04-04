@@ -376,7 +376,10 @@ def pick_palette(img, palette_size, seed, weight_map, *, retry_on_dupe=False, lo
 	height, width, depth = img.shape
 	colours = img.reshape((height * width, depth))
 
-	weight_map = weight_map.reshape((height * width,))
+	if weight_map is not None:
+		weight_map = weight_map.reshape((height * width,))
+	else:
+		weight_map = np.ones(height * width)
 
 	while True:
 		colour_palette = k_means(colours, palette_size, weight_map, seed=seed)
@@ -424,7 +427,9 @@ def analyse_img(path, weight_map_path, img_out, instr_out, *, verbosity=Log.INFO
 	log.info("Converting to Lab...")
 	img_lab = cv2.cvtColor(img_raw.astype(np.float32) / 255, cv2.COLOR_BGR2Lab)
 
-	weight_map = cv2.imread(weight_map_path, 0).astype(np.float32)
+	weight_map = None
+	if weight_map_path is not None:
+		weight_map = cv2.imread(weight_map_path, 0).astype(np.float32)
 
 	nh_palette = pick_palette(img_lab, PALETTE_SIZE, seed, weight_map,
 		retry_on_dupe=retry_on_dupe, log=log)
