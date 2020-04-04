@@ -377,7 +377,7 @@ def pick_palette(img, palette_size, seed, weight_map, *, retry_on_dupe=False, lo
 	colours = img.reshape((height * width, depth))
 
 	if weight_map is not None:
-		weight_map = weight_map.reshape((height * width,))
+		weight_map = weight_map.reshape(height * width)
 	else:
 		weight_map = np.ones(height * width)
 
