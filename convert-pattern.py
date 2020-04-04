@@ -78,7 +78,7 @@ def k_means(items, k, *, seed=None):
 			if center_matches[i] == 0:
 				# raise ZeroDivisionError("A cluster had no matches")
 				# If a center has no matches, set it to a random point in the dataset
-				centers_means[i] = items[rng.choice(range(n), 1)]
+				center_means[i] = items[rng.choice(range(n), 1)]
 				reset_center = True
 				continue
 
