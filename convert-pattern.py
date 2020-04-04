@@ -53,13 +53,10 @@ def k_means(items, k, *, seed=None):
 	n, dimensions = items.shape
 	dtype = items.dtype
 
-	# TODO: read path from a param
-	# TODO: Load image + reshape in analyse_img
 	weight_map = cv2.imread("chair-weight-map.png", 0).astype(np.float32)
 	weight_map = weight_map.reshape((n,))
 
 	# Initialise centers randomly
-	# TODO: K-Means++ initialisation
 	indices = rng.choice(range(n), k, False)
 	centers = items[indices]
 
@@ -93,8 +90,6 @@ def k_means(items, k, *, seed=None):
 		# If the new centers match the previous centers, return
 		if not reset_center and np.array_equal(centers, center_means):
 			return centers;
-
-		# TODO: Count how many times centers have been reset. If it happens a lot, exit with an exception
 
 		# Otherwise, use the means as the centers for the next iteration
 		centers = center_means
@@ -214,10 +209,6 @@ def palette_hsv_to_nh(palette):
 		nh_colour[0] = round(h / HSV_H_MAX *  NH_DEPTH_H) % NH_DEPTH_H
 		nh_colour[1] = round(s / HSV_S_MAX * (NH_DEPTH_S - 1))
 		nh_colour[2] = round(v / HSV_V_MAX * (NH_DEPTH_V - 1))
-
-	# TODO: Handle duplicate colours better here.
-		# Try to check what exact colours they came from and round up/down to distinguish them
-		# Remember that modifying some colours may result in new duplicates, maybe just repeating the process will fix this eventually?
 
 	return nh_palette
 
@@ -372,10 +363,8 @@ def analyse_img(path, img_out, instr_out, *, verbosity=Log.INFO, seed=None):
 	# NH allows 15 colours + transparent
 	PALETTE_SIZE = 15
 
-	# TODO: parameter for this
 	USE_DITHERING = True
 
-	# TODO: Check for and handle transparency properly
 	log = Log(verbosity)
 
 	if seed is None:
@@ -388,7 +377,6 @@ def analyse_img(path, img_out, instr_out, *, verbosity=Log.INFO, seed=None):
 	if img_raw is None:
 		raise FileNotFoundError()
 
-	# TODO: resize image
 	log.info("Converting to Lab...")
 	img_lab = cv2.cvtColor(img_raw.astype(np.float32) / 255, cv2.COLOR_BGR2Lab)
 
@@ -409,10 +397,8 @@ def analyse_img(path, img_out, instr_out, *, verbosity=Log.INFO, seed=None):
 	nh_palette = palette_hsv_to_nh(hsv_palette)
 
 	# Check if any colours are identical after rounding
-	# TODO: Option to automatically advance seed and retry if there is >=1 duplicate
 	duplicate_colours = get_duplicate_colours(nh_palette)
 	if len(duplicate_colours) > 0:
-		# TODO: Allow stacking of --quiet to hide warnings too
 		log.warn("Repeated colours in palette:", *duplicate_colours)
 
 	# Convert the NH colours to BGR(1) to Lab
@@ -441,8 +427,6 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description=
 		"Convert an image to a New Horizons custom pattern")
 
-	# TODO: Option to pass a weight map, to allow some areas to be given higher priority when performing k-means to choose a palette
-
 	parser.add_argument("input-file", help="Path to input image")
 	parser.add_argument("-o", "--out", default="nh-pattern.png",
 		help="Path to save output preview image")
@@ -456,9 +440,6 @@ if __name__ == "__main__":
 		help="Don't print any info messages to stdout")
 	verbosity_group.add_argument("-v", "--verbose", action="store_true",
 		help="Print more debug info to stdout");
-	# TODO: Option to output palette as an image
-	# TODO: Option to force no repeat colours in the palette (increment seed until no repeats)
-	# TODO: Option to manually set a palette (image where 1 pixel=1 colour?)
 
 	args = parser.parse_args()
 
