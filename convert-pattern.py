@@ -412,7 +412,7 @@ def pick_palette(img, palette_size, seed, *, retry_on_dupe=False, log=Log(Log.ER
 		seed += 1
 		log.info("Palette has duplicate colours. Retrying with seed:", seed)
 
-def analyse_img(path, img_out, instr_out, *, verbosity=Log.INFO, seed=None):
+def analyse_img(path, img_out, instr_out, *, verbosity=Log.INFO, seed=None, retry_on_dupe=False):
 	# NH allows 15 colours + transparent
 	PALETTE_SIZE = 15
 
@@ -437,7 +437,7 @@ def analyse_img(path, img_out, instr_out, *, verbosity=Log.INFO, seed=None):
 	img_lab = cv2.cvtColor(img_raw.astype(np.float32) / 255, cv2.COLOR_BGR2Lab)
 
 	# TODO: parameter for retry_on_dupe
-	nh_palette = pick_palette(img_lab, PALETTE_SIZE, seed, retry_on_dupe=True, log=log);
+	nh_palette = pick_palette(img_lab, PALETTE_SIZE, seed, retry_on_dupe=retry_on_dupe, log=log);
 
 	# Convert the NH colours to BGR(1) to Lab
 	hsv_approximated = palette_nh_to_hsv(nh_palette)
@@ -470,6 +470,10 @@ if __name__ == "__main__":
 		help="Path to save output preview image")
 	parser.add_argument("-i", "--instructions-out", default="nh-pattern-instructions.txt",
 		help="Path to save pattern instructions")
+
+	parser.add_argument("-r", "--retry-duplicate", action="store_true",
+		help="Retry palette generation until there are no duplicate colours")
+
 	parser.add_argument("-s", "--seed", type=int, default=None,
 		help="RNG seed for K-Means initialisation")
 
@@ -493,7 +497,7 @@ if __name__ == "__main__":
 
 	try:
 		analyse_img(input_file, img_out=args.out, instr_out=args.instructions_out,
-			verbosity=verbosity, seed=args.seed);
+			verbosity=verbosity, seed=args.seed, retry_on_dupe=args.retry_duplicate);
 	except FileNotFoundError:
 		sys.stderr.write("File does not exist or is not a valid image\n")
 		sys.exit(1)
