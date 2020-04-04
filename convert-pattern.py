@@ -54,7 +54,6 @@ def k_means(items, k, *, seed=None):
 	dtype = items.dtype
 
 	# Initialise centers randomly
-	# TODO: K-Means++ initialisation
 	indices = rng.choice(range(n), k, False)
 	centers = items[indices]
 
@@ -76,8 +75,6 @@ def k_means(items, k, *, seed=None):
 		reset_center = False
 		for i in range(k):
 			if center_matches[i] == 0:
-				# TODO: Leave cluster as is
-				# raise ZeroDivisionError("A cluster had no matches")
 				# If a center has no matches, set it to a random point in the dataset
 				center_means[i] = items[rng.choice(range(n), 1)]
 				reset_center = True
@@ -88,8 +85,6 @@ def k_means(items, k, *, seed=None):
 		# If the new centers match the previous centers, return
 		if not reset_center and np.array_equal(centers, center_means):
 			return centers;
-
-		# TODO: Count how many times centers have been reset. If it happens a lot, exit with an exception
 
 		# Otherwise, use the means as the centers for the next iteration
 		centers = center_means
@@ -210,10 +205,6 @@ def palette_hsv_to_nh(palette):
 		nh_colour[1] = round(s / HSV_S_MAX * (NH_DEPTH_S - 1))
 		nh_colour[2] = round(v / HSV_V_MAX * (NH_DEPTH_V - 1))
 
-	# TODO: Handle duplicate colours better here.
-		# Try to check what exact colours they came from and round up/down to distinguish them
-		# Remember that modifying some colours may result in new duplicates, maybe just repeating the process will fix this eventually?
-
 	return nh_palette
 
 # Convert a palette of New Horizon colours to the HSV range used by OpenCV2
@@ -266,7 +257,6 @@ def get_duplicate_colours(palette):
 def _write_palette_channel(file, channel_idx, channel_name, header_width, palette):
 	file.write(channel_name.rjust(header_width) + ": ")
 
-	# TODO: use 'join' to avoid trailing spaces at the end of the line
 	for colour in palette:
 		file.write(str(colour[channel_idx]).rjust(2) + "  ")
 
@@ -402,10 +392,7 @@ def pick_palette(img, palette_size, seed, *, retry_on_dupe=False, log=Log(Log.ER
 		if len(duplicate_colours) <= 0:
 			return nh_palette
 
-		# TODO: Alternative option to do some non-standard rounding to achieve a unique palette, rather than just retrying.
-
 		if not retry_on_dupe:
-			# TODO: Allow stacking of --quiet to hide warnings too
 			log.warn("Repeated colours in palette:", *duplicate_colours)
 			return nh_palette
 
@@ -416,10 +403,8 @@ def analyse_img(path, img_out, instr_out, *, verbosity=Log.INFO, seed=None, retr
 	# NH allows 15 colours + transparent
 	PALETTE_SIZE = 15
 
-	# TODO: parameter for this
 	USE_DITHERING = True
 
-	# TODO: Check for and handle transparency properly
 	log = Log(verbosity)
 
 	if seed is None:
@@ -432,11 +417,9 @@ def analyse_img(path, img_out, instr_out, *, verbosity=Log.INFO, seed=None, retr
 	if img_raw is None:
 		raise FileNotFoundError()
 
-	# TODO: resize image
 	log.info("Converting to Lab...")
 	img_lab = cv2.cvtColor(img_raw.astype(np.float32) / 255, cv2.COLOR_BGR2Lab)
 
-	# TODO: parameter for retry_on_dupe
 	nh_palette = pick_palette(img_lab, PALETTE_SIZE, seed, retry_on_dupe=retry_on_dupe, log=log);
 
 	# Convert the NH colours to BGR(1) to Lab
@@ -482,8 +465,6 @@ if __name__ == "__main__":
 		help="Don't print any info messages to stdout")
 	verbosity_group.add_argument("-v", "--verbose", action="store_true",
 		help="Print more debug info to stdout");
-	# TODO: Option to output palette as an image
-	# TODO: Option to force no repeat colours in the palette (increment seed until no repeats)
 
 	args = parser.parse_args()
 
