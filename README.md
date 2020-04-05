@@ -78,7 +78,20 @@ by a previous colour. The first colour is represented by an `a`, the second colo
 is represented by a `b`, and so on.
 
 <!-- TODO: Overview of algorithm -->
-<!-- TODO: Dithering -->
+
+## Dithering
+
+<!-- TODO: Image examples of dithering vs no-dithering -->
+
+([Read about dithering on Wikipedia](https://en.wikipedia.org/wiki/Dither))
+
+Dithering may be used to simulate better colour variation, while creating a slightly
+more noisy look to the pattern, which may be desirable or undesirable depending on
+the image. The script can use [Floyd-Steinberg](https://en.wikipedia.org/wiki/Floyd%E2%80%93Steinberg_dithering)
+dithering to achieve this effect in your patterns.
+
+This option defaults to off, but may be toggled on using the `-d`/`--dithering` flag.
+
 <!-- TODO: Duplicate colour handling -->
 <!-- TODO: Weight maps -->
 <!-- TODO: RNG Seed -->

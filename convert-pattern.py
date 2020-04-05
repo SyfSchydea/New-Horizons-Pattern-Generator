@@ -122,7 +122,7 @@ def create_indexed_img_dithered(img, palette):
 	# Weighting of quantisation error difused to neighbouring pixels.
 	# In order of (y, x): (+0, +1), (+1, -1), (+1, +0), (+1, +1)
 	# Traditional Floyd-Steinberg uses [7, 3, 5, 1].
-	DIFFUSION_COEFFS = [5, 2, 3, 1]
+	DIFFUSION_COEFFS = [7, 3, 5, 1]
 
 	# Smallest unit by which error is diffused.
 	# Error will only be diffused in integer multiples of
@@ -369,7 +369,7 @@ def get_rng_seed():
 #                       process will repeat until a unique palette is returned.
 # param log           - Log to use to output info.
 #
-# return              - NH Palette as array.
+# return              - Tuple of (NH Palette as array, Lab palette as array)
 def pick_palette(img, palette_size, seed, weight_map, *, retry_on_dupe=False, log=Log(Log.ERROR)):
 	# Generate colour palette using K-Means
 	log.info("Finding suitable colour palette...")
@@ -397,20 +397,20 @@ def pick_palette(img, palette_size, seed, weight_map, *, retry_on_dupe=False, lo
 		# Check if any colours are identical after rounding
 		duplicate_colours = get_duplicate_colours(nh_palette)
 		if len(duplicate_colours) <= 0:
-			return nh_palette
+			return nh_palette, colour_palette
 
 		if not retry_on_dupe:
 			log.warn("Repeated colours in palette:", *duplicate_colours)
-			return nh_palette
+			return nh_palette, colour_palette
 
 		seed += 1
 		log.info("Palette has duplicate colours. Retrying with seed:", seed)
 
-def analyse_img(path, weight_map_path, img_out, instr_out, *, verbosity=Log.INFO, seed=None, retry_on_dupe=False):
+def analyse_img(path, weight_map_path, img_out, instr_out, *,
+		seed=None, retry_on_dupe=False, use_dithering=True,
+		verbosity=Log.INFO):
 	# NH allows 15 colours + transparent
 	PALETTE_SIZE = 15
-
-	USE_DITHERING = True
 
 	log = Log(verbosity)
 
@@ -431,7 +431,7 @@ def analyse_img(path, weight_map_path, img_out, instr_out, *, verbosity=Log.INFO
 	if weight_map_path is not None:
 		weight_map = cv2.imread(weight_map_path, 0).astype(np.float32)
 
-	nh_palette = pick_palette(img_lab, PALETTE_SIZE, seed, weight_map,
+	nh_palette, lab_palette = pick_palette(img_lab, PALETTE_SIZE, seed, weight_map,
 		retry_on_dupe=retry_on_dupe, log=log)
 
 	# Convert the NH colours to BGR(1) to Lab
@@ -442,11 +442,11 @@ def analyse_img(path, weight_map_path, img_out, instr_out, *, verbosity=Log.INFO
 
 	# Create indexed image using clusters
 	log.info("Creating indexed image...")
-	if USE_DITHERING:
+	if use_dithering:
 		lab_approx = convert_palette(bgr_approx, cv2.COLOR_BGR2Lab)
 		indexed_img = create_indexed_img_dithered(img_lab, lab_approx)
 	else:
-		indexed_img = create_indexed_img_threshold(img_lab, colour_palette)
+		indexed_img = create_indexed_img_threshold(img_lab, lab_palette)
 
 	# Print drawing instructions
 	write_instructions(instr_out, indexed_img, nh_palette)
@@ -465,6 +465,9 @@ if __name__ == "__main__":
 		help="Path to save output preview image")
 	parser.add_argument("-i", "--instructions-out", default="nh-pattern-instructions.txt",
 		help="Path to save pattern instructions")
+
+	parser.add_argument("-d", "--dithering", action="store_true",
+		help="Use Floyd-Steinberg dithering when creating the pattern")
 
 	parser.add_argument("-w", "--weight-map",
 		help="Map of pixel weights for palette selection")
@@ -494,7 +497,9 @@ if __name__ == "__main__":
 	try:
 		analyse_img(input_file, weight_map_path=args.weight_map,
 			img_out=args.out, instr_out=args.instructions_out,
-			verbosity=verbosity, seed=args.seed, retry_on_dupe=args.retry_duplicate);
+			seed=args.seed, retry_on_dupe=args.retry_duplicate,
+			use_dithering=args.dithering,
+			verbosity=verbosity);
 	except FileNotFoundError:
 		sys.stderr.write("File does not exist or is not a valid image\n")
 		sys.exit(1)
