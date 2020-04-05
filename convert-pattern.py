@@ -112,14 +112,14 @@ def create_indexed_img_threshold(img, palette):
 # Create an indexed image from an image and colour
 # palette, using Floyd-Steinberg dithering.
 #
-# param img     - Image as a numpy array of size (height, width, depth)
+# param img     - Image as a NumPy array of size (height, width, depth)
 # param palette - Array of colours to use, in the same colour space as img.
 #                 Array dimensions: (n, depth) where n is
 #                 the number of colours in the palette.
 #
 # return        - Indexed image as (height, width) size array of ints
 def create_indexed_img_dithered(img, palette):
-	# Weighting of quantisation error difused to neighbouring pixels.
+	# Weighting of quantisation error diffused to neighbouring pixels.
 	# In order of (y, x): (+0, +1), (+1, -1), (+1, +0), (+1, +1)
 	# Traditional Floyd-Steinberg uses [7, 3, 5, 1].
 	DIFFUSION_COEFFS = [7, 3, 5, 1]
@@ -208,7 +208,7 @@ def palette_hsv_to_nh(palette):
 
 	return nh_palette
 
-# Convert a palette of New Horizon colours to the HSV range used by OpenCV2
+# Convert a palette of New Horizon colours to the HSV range used by OpenCV
 def palette_nh_to_hsv(palette):
 	palette_size, depth = palette.shape
 	hsv_palette = np.zeros((palette_size, 3), dtype=np.float32)
@@ -366,7 +366,7 @@ def get_rng_seed():
 # param palette_size  - Number of colours to use in the palette.
 # param seed          - Starting RNG seed.
 # param retry_on_dupe - If truthy, when a palette containing a duplicate colour
-#                       is generated, the rng seed will be incremented, and the
+#                       is generated, the RNG seed will be incremented, and the
 #                       process will repeat until a unique palette is returned.
 # param log           - Log to use to output info.
 #
