@@ -93,7 +93,7 @@ def k_means(items, k, weight_map, *, seed=None):
 # Create an indexed image using a given image and a palette of colours.
 # No dithering. Take a closest colour to each pixel value.
 #
-# param img     - Image as a numpy array of size (height, width, depth)
+# param img     - Image as a NumPy array of size (height, width, depth)
 # param palette - Array of colours to use, in the same colour space as img.
 #                 Array dimensions: (n, depth) where n is
 #                 the number of colours in the palette.
