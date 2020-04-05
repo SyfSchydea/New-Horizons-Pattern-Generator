@@ -116,6 +116,14 @@ and continue regardless. Alternatively, you can pass the `-r`/`--retry-duplicate
 flag to automatically retry palette generation until a palette with no duplicates
 is created.
 
-<!-- TODO: Weight maps -->
+## Weight maps
+
+A weight map may be used to give higher weights to some pixels when choosing palettes.
+A weight map may be passed using the `-w`/`--weight-map`, and should be a greyscale
+image with the same size as the main input image. Areas in the main image corresponding
+to brighter values in the weight map will receive greater consideration than darker
+areas when performing k-means to choose colours. This can be used to give more detail
+to an area if you think it needs it.
+
 <!-- TODO: RNG Seed -->
 <!-- TODO: Logging + -q/v -->
