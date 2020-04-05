@@ -78,7 +78,20 @@ colour. Pixels represented by a lower-case letter should have already been fille
 by a previous colour. The first colour is represented by an `a`, the second colour
 is represented by a `b`, and so on.
 
-<!-- TODO: Overview of algorithm -->
+## Algorithm
+
+To choose a palette, the script uses
+[k-means clustering](https://en.wikipedia.org/wiki/K-means_clustering) on all the
+colours present in the image. This chooses a good subset of colours to represent
+the full set of colours.
+
+Before performing k-means, the colours are converted to the
+[Lab colour space](https://en.wikipedia.org/wiki/CIELAB_color_space) as this provides
+a better representation of perceptual differences between colours.
+
+After a palette has been generated, it is rounded to get an approximation of the palette,
+which can be used in New Horizons. The palette is then used map each pixel in the image
+to a colour in the palette.
 
 ## Dithering
 
