@@ -104,7 +104,18 @@ dithering to achieve this effect in your patterns.
 
 This option defaults to off, but may be toggled on using the `-d`/`--dithering` flag.
 
-<!-- TODO: Duplicate colour handling -->
+## Duplicate colours
+
+Sometimes, when a palette is generated, two or more of the colours may be close
+enough to each other that when converted to New Horizons' colour space, they are
+rounded to exactly the same value. This is obviously undesirable, as this means
+one colour is effectively going unused.
+
+The current default policy to handle this situation is simply to output a warning
+and continue regardless. Alternatively, you can pass the `-r`/`--retry-duplicate`
+flag to automatically retry palette generation until a palette with no duplicates
+is created.
+
 <!-- TODO: Weight maps -->
 <!-- TODO: RNG Seed -->
 <!-- TODO: Logging + -q/v -->
