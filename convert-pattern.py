@@ -307,7 +307,8 @@ def write_instructions(path_out, indexed_img, palette, *, pattern_name="your pat
 		# Print map for each colour in the palette.
 		display_chars = [EMPTY_COLOUR] * palette_size
 		for i, col in enumerate(palette):
-			file.write(f"Colour {i} {col}:\n")
+			colour_str = "(" + " ".join(str(x) for x in col) + ")"
+			file.write(f"Colour {i} {colour_str}:\n")
 			display_chars[i] = ACTIVE_COLOUR
 			_write_indexed_img(file, indexed_img, display_chars)
 			display_chars[i] = DISPLAY_CHARS[i]
