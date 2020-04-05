@@ -76,8 +76,8 @@ def k_means(items, k, weight_map, *, seed=None):
 		reset_center = False
 		for i in range(k):
 			if center_matches[i] == 0:
-				# If a center has no matches, set it to a random point in the dataset
-				center_means[i] = items[rng.choice(range(n), 1)]
+				# If a center has no matches, leave it at its existing value
+				center_means[i] = centers[i]
 				reset_center = True
 				continue
 
