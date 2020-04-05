@@ -2,7 +2,8 @@
 
 This script converts images into patterns for Animal Crossing: New Horizons.
 
-This is written in Python 3 and requires NumPy and OpenCV.
+This is written in [Python 3](https://www.python.org/download/releases/3.0/) and
+requires [NumPy](https://numpy.org/) and [OpenCV](https://opencv.org/).
 
 <!-- TODO: Examples input/output images -->
 
@@ -83,9 +84,7 @@ is represented by a `b`, and so on.
 
 <!-- TODO: Image examples of dithering vs no-dithering -->
 
-([Read about dithering on Wikipedia](https://en.wikipedia.org/wiki/Dither))
-
-Dithering may be used to simulate better colour variation, while creating a slightly
+[Dithering](https://en.wikipedia.org/wiki/Dither) may be used to simulate better colour variation, while creating a slightly
 more noisy look to the pattern, which may be desirable or undesirable depending on
 the image. The script can use [Floyd-Steinberg](https://en.wikipedia.org/wiki/Floyd%E2%80%93Steinberg_dithering)
 dithering to achieve this effect in your patterns.
