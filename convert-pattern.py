@@ -480,7 +480,7 @@ if __name__ == "__main__":
 		help="RNG seed for K-Means initialisation")
 
 	verbosity_group = parser.add_mutually_exclusive_group();
-	verbosity_group.add_argument("-q", "--quiet", action="store_true",
+	verbosity_group.add_argument("-q", "--quiet", action="count",
 		help="Don't print any info messages to stdout")
 	verbosity_group.add_argument("-v", "--verbose", action="store_true",
 		help="Print more debug info to stdout");
@@ -490,8 +490,8 @@ if __name__ == "__main__":
 	input_file = getattr(args, "input-file")
 
 	verbosity = Log.INFO
-	if args.quiet:
-		verbosity -= 1
+	if args.quiet is not None:
+		verbosity -= args.quiet
 	if args.verbose:
 		verbosity += 1
 
