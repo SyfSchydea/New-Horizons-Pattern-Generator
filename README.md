@@ -113,8 +113,8 @@ one colour is effectively going unused.
 
 The current default policy to handle this situation is simply to output a warning
 and continue regardless. Alternatively, you can pass the `-r`/`--retry-duplicate`
-flag to automatically retry palette generation until a palette with no duplicates
-is created.
+flag to automatically increment the RNG seed and retry palette generation until
+a palette with no duplicates is created.
 
 ## Weight maps
 
@@ -125,5 +125,15 @@ to brighter values in the weight map will receive greater consideration than dar
 areas when performing k-means to choose colours. This can be used to give more detail
 to an area if you think it needs it.
 
-<!-- TODO: RNG Seed -->
+## RNG Seed
+
+The k-means algorithm does not generate the optimal set of clusters for its input data.
+Doing so would be an [NP-hard](https://en.wikipedia.org/wiki/NP-hardness) problem.
+Rather, it is a heuristic which aims to find a "good" solution in a reasonable time.
+It also depends on a randomised starting state, and as such, may produce slightly
+different results each time it is run. This starting state is determined by the
+[RNG seed](https://en.wikipedia.org/wiki/Random_seed). The script generates and
+prints a random seed before starting k-means. If you want to re-run the script exactly
+as you previously ran it, you can pass a seed using `-s`/`--seed`.
+
 <!-- TODO: Logging + -q/v -->
