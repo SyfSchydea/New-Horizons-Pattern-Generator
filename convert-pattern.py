@@ -257,10 +257,7 @@ def get_duplicate_colours(palette):
 # param palette      - Array of New Horizons colours.
 def _write_palette_channel(file, channel_idx, channel_name, header_width, palette):
 	file.write(channel_name.rjust(header_width) + ": ")
-
-	for colour in palette:
-		file.write(str(colour[channel_idx]).rjust(2) + "  ")
-
+	file.write("  ".join(str(colour[channel_idx]).rjust(2) for colour in palette))
 	file.write("\n")
 
 # Write an ascii version of an indexed image to the file.
