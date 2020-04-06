@@ -5,8 +5,6 @@ This script converts images into patterns for Animal Crossing: New Horizons.
 This is written in [Python 3](https://www.python.org/download/releases/3.0/) and
 requires [NumPy](https://numpy.org/) and [OpenCV](https://opencv.org/).
 
-<!-- TODO: Examples input/output images -->
-
 ## Basic Usage:
 
 Call the script using:
@@ -36,8 +34,6 @@ eg.:
 	        Hue:  6   8   4  11   3   7   4  11   3   4   7  11   4   2  15
 	  Vividness:  5   7   6   9   6   9   7  11   7   6   6  12   5  12  10
 	 Brightness: 11  10  13   6  14  12  14   9  14  14   8   7  13   8   5
-
-<!-- TODO: Image examples of text output to NH palette screenshots -->
 
 This section shows the colour palette to use to create this pattern. Each column
 of numbers represents one colour in the palette. Each row represents one channel
@@ -69,8 +65,6 @@ eg.:
 	  · · · · · c · · · · · · · · · b  · b b b b b # # a · · c · · · ·
 	[...]
 
-<!-- TODO: Image examples of pixel maps -> NH screenshots -->
-
 The next section in the instructions file is a map of pixels for each colour in
 the palette. Pixels represented as a dot (`·`) have not yet been filled by any
 colour. Pixels represented by a hash (`#`) should be filled in with the current
@@ -94,8 +88,6 @@ which can be used in New Horizons. The palette is then used map each pixel in th
 to a colour in the palette.
 
 ## Dithering
-
-<!-- TODO: Image examples of dithering vs no-dithering -->
 
 [Dithering](https://en.wikipedia.org/wiki/Dither) may be used to simulate better colour
 variation, while creating a slightly more noisy look to the pattern, which may be
