@@ -535,7 +535,8 @@ if __name__ == "__main__":
 
 	verbosity_group = parser.add_mutually_exclusive_group();
 	verbosity_group.add_argument("-q", "--quiet", action="count",
-		help="Don't print any info messages to stdout")
+		help="Print less information to stdout. May be stacked "
+			+ "up to three times to hide warnings and errors")
 	verbosity_group.add_argument("-v", "--verbose", action="store_true",
 		help="Print more debug info to stdout");
 
