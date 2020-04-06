@@ -137,4 +137,10 @@ different results each time it is run. This starting state is determined by the
 prints a random seed before starting k-means. If you want to re-run the script exactly
 as you previously ran it, you can pass a seed using `-s`/`--seed`.
 
-<!-- TODO: Logging + -q/v -->
+## Logging
+
+The script prints some information about what it is doing to stdout as it runs. If you
+want to see some more debug information, you can pass the `-v`/`--verbose` flag. If you
+want to see less information you can pass the `-q`/`--quiet` flag. This flag also stacks
+to hide even more output. Stacking the flag twice (`-qq`) hides info and warnings.
+Stacking the flag three times (`-qqq`) hides info, warnings, and errors.
