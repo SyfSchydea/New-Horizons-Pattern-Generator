@@ -302,6 +302,7 @@ def get_duplicate_colours(palette):
 					and np.array_equal(this_col, duplicate_colours[-1]))):
 			duplicate_colours.append(this_col)
 
+	# TODO: Also return pairs(tuples?) of indices of duplicates
 	return duplicate_colours
 
 # Write a single channel from the palette to the file.
@@ -453,6 +454,14 @@ def pick_palette(img, palette_size, seed, weight_map, *, retry_on_dupe=False, lo
 		duplicate_colours = get_duplicate_colours(nh_palette)
 		if len(duplicate_colours) <= 0:
 			return nh_palette, colour_palette
+
+		# TODO: loop through pairs of dupes
+			# TODO: Fetch original colours (before rounding)
+			# TODO: For (one of/all?) channels:
+				# TODO: find the one with more quantisation error
+				# TODO: round it the other way
+		# TODO: Repeat check for dupes
+			# TODO: Loop until no dupes? Some other handling?
 
 		if not retry_on_dupe:
 			log.warn("Repeated colours in palette:", *duplicate_colours)
