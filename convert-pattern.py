@@ -21,6 +21,16 @@ DISPLAY_CHARS = "abcdefghijklmnopqrstuvwxyz"
 EMPTY_COLOUR = "·"
 ACTIVE_COLOUR = "#"
 
+# Distance between two Lab colours.
+# Currently just euclidean distance.
+#
+# param colour_a - First colour to compare.
+# param colour_b - Second colour to compare.
+#
+# return         - Distance between the two colours.
+def lab_distance(colour_a, colour_b):
+	return np.linalg.norm(colour_a - colour_b)
+
 # Find which center a given data point is closest to.
 #
 # @param item    - m-length array data point.
@@ -32,13 +42,60 @@ def find_closest(item, centers):
 	best_distance = float("inf")
 
 	for i, center in enumerate(centers):
-		distance = np.linalg.norm(center - item)
+		distance = lab_distance(item, center)
 
 		if distance < best_distance:
 			best_distance = distance
 			best_idx = i
 
 	return best_idx
+
+# K-means++ initialisation
+# Pick the first point randomly, subsequent points are
+# the furthest point from their nearest center.
+#
+# param items - n*m array of data points. Where n = number of data
+#               points, and m = number of dimensions per data point.
+# param k     - Number of clusters to find.
+# param rng   - RandomState object to draw random numbers from.
+#
+# return      - Array of initial cluster centers.
+def k_means_pp_init(items, k, rng):
+	n, dimensions = items.shape
+
+	# Create empty array of centers
+	centers = np.zeros((k, dimensions), dtype=np.float32)
+
+	# Create array of item distances to their nearest centers
+	item_distances = np.zeros(n, dtype=np.float32) + np.inf
+
+	# Generate first center randomly
+	first_idx = rng.choice(range(n))
+	centers[0] = items[first_idx]
+
+	# For each remaining center
+	for center_idx in range(1, k):
+		prev_center = centers[center_idx - 1]
+		furthest_distance = -1
+		furthest_center = None
+		for item_idx in range(n):
+			# Update item distance
+			item = items[item_idx]
+			dist = lab_distance(item, prev_center)
+			if dist < item_distances[item_idx]:
+				item_distances[item_idx] = dist
+
+			# Find item furthest from a center
+			dist = item_distances[item_idx]
+			if dist > furthest_distance:
+				furthest_distance = dist
+				furthest_center = item
+
+		# Use as next center
+		centers[center_idx] = furthest_center
+
+	# Return all centers.
+	return centers
 
 # K means clustering algorithm.
 #
@@ -53,11 +110,11 @@ def k_means(items, k, weight_map, *, seed=None):
 	n, dimensions = items.shape
 	dtype = items.dtype
 
-	# Initialise centers randomly
-	indices = rng.choice(range(n), k, False)
-	centers = items[indices]
+	# Initialise centers
+	centers = k_means_pp_init(items, k, rng)
 
 	while True:
+
 		# Sum of all points matched to each center
 		center_totals = np.zeros((k, dimensions), dtype=dtype)
 
