@@ -97,9 +97,10 @@ to a colour in the palette.
 
 <!-- TODO: Image examples of dithering vs no-dithering -->
 
-[Dithering](https://en.wikipedia.org/wiki/Dither) may be used to simulate better colour variation, while creating a slightly
-more noisy look to the pattern, which may be desirable or undesirable depending on
-the image. The script can use [Floyd-Steinberg](https://en.wikipedia.org/wiki/Floyd%E2%80%93Steinberg_dithering)
+[Dithering](https://en.wikipedia.org/wiki/Dither) may be used to simulate better colour
+variation, while creating a slightly more noisy look to the pattern, which may be
+desirable or undesirable depending on the image. The script can use
+[Floyd-Steinberg](https://en.wikipedia.org/wiki/Floyd%E2%80%93Steinberg_dithering)
 dithering to achieve this effect in your patterns.
 
 This option defaults to off, but may be toggled on using the `-d`/`--dithering` flag.
