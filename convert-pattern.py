@@ -21,6 +21,42 @@ DISPLAY_CHARS = "abcdefghijklmnopqrstuvwxyz"
 EMPTY_COLOUR = "·"
 ACTIVE_COLOUR = "#"
 
+# Control Sequence Introducer
+CSI = "\x1b["
+
+class TTY:
+	pass
+
+TTY.RESET    = CSI + "0m"
+TTY.BOLD     = CSI + "1m"
+TTY.FAINT    = CSI + "2m"
+TTY.INVERSE  = CSI + "7m"
+
+TTY.NORMAL_COLOUR = CSI + "22m"
+TTY.INVERSE_OFF = CSI + "27m"
+
+TTY.FG = TTY()
+TTY.FG.BLACK   = CSI + "30m"
+TTY.FG.RED     = CSI + "31m"
+TTY.FG.GREEN   = CSI + "32m"
+TTY.FG.YELLOW  = CSI + "33m"
+TTY.FG.BLUE    = CSI + "34m"
+TTY.FG.MAGENTA = CSI + "35m"
+TTY.FG.CYAN    = CSI + "36m"
+TTY.FG.WHITE   = CSI + "37m"
+TTY.FG.RESET   = CSI + "39m"
+
+TTY.BG = TTY()
+TTY.BG.BLACK   = CSI + "40m"
+TTY.BG.RED     = CSI + "41m"
+TTY.BG.GREEN   = CSI + "42m"
+TTY.BG.YELLOW  = CSI + "43m"
+TTY.BG.BLUE    = CSI + "44m"
+TTY.BG.MAGENTA = CSI + "45m"
+TTY.BG.CYAN    = CSI + "46m"
+TTY.BG.WHITE   = CSI + "47m"
+TTY.BG.RESET   = CSI + "49m"
+
 # Distance between two Lab colours.
 # Currently just euclidean distance.
 #
