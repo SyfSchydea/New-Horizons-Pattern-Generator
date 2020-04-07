@@ -16,14 +16,10 @@ HSV_H_MAX = 360
 HSV_S_MAX =   1
 HSV_V_MAX =   1
 
-# Characters used to represent each colour in ascii output
-DISPLAY_CHARS = "abcdefghijklmnopqrstuvwxyz"
-EMPTY_COLOUR = "·"
-ACTIVE_COLOUR = "#"
-
 # Control Sequence Introducer
 CSI = "\x1b["
 
+# Class containing tty colour/formatting control codes.
 class TTY:
 	pass
 
@@ -33,7 +29,7 @@ TTY.FAINT    = CSI + "2m"
 TTY.INVERSE  = CSI + "7m"
 
 TTY.NORMAL_COLOUR = CSI + "22m"
-TTY.INVERSE_OFF = CSI + "27m"
+TTY.INVERSE_OFF   = CSI + "27m"
 
 TTY.FG = TTY()
 TTY.FG.BLACK   = CSI + "30m"
@@ -56,6 +52,16 @@ TTY.BG.MAGENTA = CSI + "45m"
 TTY.BG.CYAN    = CSI + "46m"
 TTY.BG.WHITE   = CSI + "47m"
 TTY.BG.RESET   = CSI + "49m"
+
+# Characters used to represent each colour in ascii output
+DISPLAY_CHARS = "abcdefghijklmnopqrstuvwxyz"
+PREV_COLOUR = TTY.FG.BLUE
+
+EMPTY_CHAR = "·"
+EMPTY_COLOUR = TTY.FAINT
+
+ACTIVE_CHAR = "#"
+ACTIVE_COLOUR = TTY.BOLD + TTY.FG.MAGENTA
 
 # Distance between two Lab colours.
 # Currently just euclidean distance.
@@ -368,7 +374,7 @@ def _write_indexed_img(file, indexed_img, display_chars):
 
 			idx = indexed_img[y, x]
 			char = display_chars[idx]
-			file.write(char.rjust(2))
+			file.write(" " + char)
 
 		file.write("\n")
 
@@ -381,6 +387,14 @@ def _write_indexed_img(file, indexed_img, display_chars):
 # param indexed_img - Array of colour indices for each pixel of the image.
 # param palette     - Array of New Horizons colours
 def write_instructions(path_out, indexed_img, palette, *, pattern_name="your pattern"):
+	USE_TTY_COLOURS = True
+
+	empty_pixel  = EMPTY_CHAR
+	active_pixel = ACTIVE_CHAR
+	if USE_TTY_COLOURS:
+		empty_pixel  = EMPTY_COLOUR  + empty_pixel  + TTY.RESET
+		active_pixel = ACTIVE_COLOUR + active_pixel + TTY.RESET
+
 	height, width   = indexed_img.shape
 	palette_size, _ =     palette.shape
 
@@ -395,13 +409,16 @@ def write_instructions(path_out, indexed_img, palette, *, pattern_name="your pat
 		file.write("\n")
 
 		# Print map for each colour in the palette.
-		display_chars = [EMPTY_COLOUR] * palette_size
+		display_chars = [empty_pixel] * palette_size
 		for i, col in enumerate(palette):
 			colour_str = "(" + " ".join(str(x) for x in col) + ")"
 			file.write(f"Colour {i} {colour_str}:\n")
-			display_chars[i] = ACTIVE_COLOUR
+			display_chars[i] = active_pixel
 			_write_indexed_img(file, indexed_img, display_chars)
-			display_chars[i] = DISPLAY_CHARS[i]
+			prev_pixel = DISPLAY_CHARS[i]
+			if USE_TTY_COLOURS:
+				prev_pixel = PREV_COLOUR + prev_pixel + TTY.RESET
+			display_chars[i] = prev_pixel
 			file.write("\n")
 
 def output_preview_image(path_out, indexed_img, bgr_palette):
