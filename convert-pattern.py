@@ -19,49 +19,81 @@ HSV_V_MAX =   1
 # Control Sequence Introducer
 CSI = "\x1b["
 
-# Class containing tty colour/formatting control codes.
+# Class for setting tty colour/formatting
 class TTY:
-	pass
+	def __init__(self, file=sys.stdout):
+		self.file = file
+		self.fg = 7
 
-TTY.RESET    = CSI + "0m"
-TTY.BOLD     = CSI + "1m"
-TTY.FAINT    = CSI + "2m"
-TTY.INVERSE  = CSI + "7m"
+	# Set foreground colour
+	#
+	# param colour - Colour to set foreground to.
+	#                Should be one of the colour constants defined below.
+	def set_fg(self, colour=7):
+		# Only allow colour values 0 to 9.
+		colour %= 10
 
-TTY.NORMAL_COLOUR = CSI + "22m"
-TTY.INVERSE_OFF   = CSI + "27m"
+		# Avoid outputting a control code when switching
+		# from "default" to "white" or vice-versa.
+		if colour == TTY.RESET_COLOUR:
+			colour = TTY.FG_DEFAULT
 
-TTY.FG = TTY()
-TTY.FG.BLACK   = CSI + "30m"
-TTY.FG.RED     = CSI + "31m"
-TTY.FG.GREEN   = CSI + "32m"
-TTY.FG.YELLOW  = CSI + "33m"
-TTY.FG.BLUE    = CSI + "34m"
-TTY.FG.MAGENTA = CSI + "35m"
-TTY.FG.CYAN    = CSI + "36m"
-TTY.FG.WHITE   = CSI + "37m"
-TTY.FG.RESET   = CSI + "39m"
+		# If the terminal is already outputting
+		# in this colour, don't change that.
+		if colour == self.fg:
+			return
 
-TTY.BG = TTY()
-TTY.BG.BLACK   = CSI + "40m"
-TTY.BG.RED     = CSI + "41m"
-TTY.BG.GREEN   = CSI + "42m"
-TTY.BG.YELLOW  = CSI + "43m"
-TTY.BG.BLUE    = CSI + "44m"
-TTY.BG.MAGENTA = CSI + "45m"
-TTY.BG.CYAN    = CSI + "46m"
-TTY.BG.WHITE   = CSI + "47m"
-TTY.BG.RESET   = CSI + "49m"
+		# Write control code
+		self.file.write(CSI + "3" + str(colour)[-1] + "m")
+		self.fg = colour
+	
+	# Write text to the tty.
+	#
+	# param string - May be a str or a FormattedString.
+	def write(self, string):
+		if isinstance(string, FormattedString):
+			self.set_fg(string.fg)
+			string = string.string
+
+		self.file.write(string)
+	
+	# Reset all colours and formatting to default
+	def reset_all(self):
+		self.set_fg(TTY.RESET_COLOUR)
+
+# Colour values which may be set to foreground or background
+TTY.BLACK        = 0
+TTY.RED          = 1
+TTY.GREEN        = 2
+TTY.BLUE         = 4
+TTY.YELLOW       = TTY.RED  | TTY.GREEN
+TTY.MAGENTA      = TTY.RED  | TTY.BLUE
+TTY.CYAN         = TTY.BLUE | TTY.GREEN
+TTY.WHITE        = TTY.RED  | TTY.GREEN | TTY.BLUE
+TTY.RESET_COLOUR = 9
+
+# Normal terminal settings
+TTY.FG_DEFAULT = TTY.WHITE
+
+# Represents a string in a specific colour.
+class FormattedString:
+	def __init__(self, string, fg=TTY.RESET_COLOUR):
+		self.string = string
+		self.fg = fg
+	
+	# Set this string's foreground colour.
+	# Returns itself to allow chaining.
+	def set_fg(self, fg):
+		self.fg = fg
+		return self
 
 # Characters used to represent each colour in ascii output
 DISPLAY_CHARS = "abcdefghijklmnopqrstuvwxyz"
-PREV_COLOUR = TTY.FG.BLUE
+PREV_COLOUR = TTY.BLUE
 
-EMPTY_CHAR = "·"
-EMPTY_COLOUR = TTY.FAINT
+EMPTY_CHAR = FormattedString("·").set_fg(TTY.FG_DEFAULT)
 
-ACTIVE_CHAR = "#"
-ACTIVE_COLOUR = TTY.BOLD + TTY.FG.MAGENTA
+ACTIVE_CHAR = FormattedString("#").set_fg(TTY.MAGENTA)
 
 # Distance between two Lab colours.
 # Currently just euclidean distance.
@@ -374,7 +406,8 @@ def _write_indexed_img(file, indexed_img, display_chars):
 
 			idx = indexed_img[y, x]
 			char = display_chars[idx]
-			file.write(" " + char)
+			file.write(" ")
+			file.write(char)
 
 		file.write("\n")
 
@@ -387,39 +420,33 @@ def _write_indexed_img(file, indexed_img, display_chars):
 # param indexed_img - Array of colour indices for each pixel of the image.
 # param palette     - Array of New Horizons colours
 def write_instructions(path_out, indexed_img, palette, *, pattern_name="your pattern"):
-	USE_TTY_COLOURS = True
-
 	empty_pixel  = EMPTY_CHAR
 	active_pixel = ACTIVE_CHAR
-	if USE_TTY_COLOURS:
-		empty_pixel  = EMPTY_COLOUR  + empty_pixel  + TTY.RESET
-		active_pixel = ACTIVE_COLOUR + active_pixel + TTY.RESET
 
 	height, width   = indexed_img.shape
 	palette_size, _ =     palette.shape
 
 	with open(path_out, "w") as file:
-		file.write(f"How to draw {pattern_name}:\n\n")
+		tty = TTY(file)
+		tty.write(f"How to draw {pattern_name}:\n\n")
 
-		file.write("Colour palette:\n")
+		tty.write("Colour palette:\n")
 		header_width = 11
-		_write_palette_channel(file, 0, "Hue",        header_width, palette)
-		_write_palette_channel(file, 1, "Vividness",  header_width, palette)
-		_write_palette_channel(file, 2, "Brightness", header_width, palette)
-		file.write("\n")
+		_write_palette_channel(tty, 0, "Hue",        header_width, palette)
+		_write_palette_channel(tty, 1, "Vividness",  header_width, palette)
+		_write_palette_channel(tty, 2, "Brightness", header_width, palette)
+		tty.write("\n")
 
 		# Print map for each colour in the palette.
 		display_chars = [empty_pixel] * palette_size
 		for i, col in enumerate(palette):
 			colour_str = "(" + " ".join(str(x) for x in col) + ")"
-			file.write(f"Colour {i} {colour_str}:\n")
+			tty.write(f"Colour {i} {colour_str}:\n")
 			display_chars[i] = active_pixel
-			_write_indexed_img(file, indexed_img, display_chars)
-			prev_pixel = DISPLAY_CHARS[i]
-			if USE_TTY_COLOURS:
-				prev_pixel = PREV_COLOUR + prev_pixel + TTY.RESET
+			_write_indexed_img(tty, indexed_img, display_chars)
+			prev_pixel = FormattedString(DISPLAY_CHARS[i]).set_fg(PREV_COLOUR)
 			display_chars[i] = prev_pixel
-			file.write("\n")
+			tty.write("\n")
 
 def output_preview_image(path_out, indexed_img, bgr_palette):
 	height, width = indexed_img.shape
