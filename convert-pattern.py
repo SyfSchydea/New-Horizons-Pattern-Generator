@@ -1,6 +1,7 @@
 #!/bin/python3
 
 import sys
+from copy import copy
 import argparse
 
 import numpy as np
@@ -19,81 +20,138 @@ HSV_V_MAX =   1
 # Control Sequence Introducer
 CSI = "\x1b["
 
+# Colour values which may be set to foreground or background in a tty
+BLACK        = 0
+RED          = 1
+GREEN        = 2
+BLUE         = 4
+YELLOW       = RED  | GREEN
+MAGENTA      = RED  | BLUE
+CYAN         = BLUE | GREEN
+WHITE        = RED  | GREEN | BLUE
+RESET_COLOUR = 9
+
+# Normal terminal settings
+FG_DEFAULT = WHITE
+
+# Represents a text formatting style
+class TextFormat:
+	def __init__(self, *, fg=FG_DEFAULT, bold=False):
+		self.fg = fg
+		self.bold = bold
+
+	def fg_matches(self, other_fg):
+		return self.fg == sanitise_fg(other_fg)
+
+	def set_fg(self, fg):
+		self.fg = sanitise_fg(fg)
+	
+	# Return true if and only if `other` is an identical TextFormat
+	def __eq__(self, other):
+		if not isinstance(other, TextFormat):
+			return False
+
+		return (self.fg_matches(other.fg)
+			and self.bold == other.bold)
+
 # Class for setting tty colour/formatting
 class TTY:
-	def __init__(self, file=sys.stdout):
+	def __init__(self, file=sys.stdout, fmt=TextFormat()):
 		self.file = file
-		self.fg = 7
+		self.fmt = copy(fmt)
 
 	# Set foreground colour
 	#
 	# param colour - Colour to set foreground to.
 	#                Should be one of the colour constants defined below.
 	def set_fg(self, colour=7):
-		# Only allow colour values 0 to 9.
-		colour %= 10
-
-		# Avoid outputting a control code when switching
-		# from "default" to "white" or vice-versa.
-		if colour == TTY.RESET_COLOUR:
-			colour = TTY.FG_DEFAULT
-
 		# If the terminal is already outputting
 		# in this colour, don't change that.
-		if colour == self.fg:
+		if self.fmt.fg_matches(colour):
 			return
 
 		# Write control code
-		self.file.write(CSI + "3" + str(colour)[-1] + "m")
-		self.fg = colour
+		self.fmt.set_fg(colour)
+		self.file.write(CSI + "3" + str(self.fmt.fg) + "m")
 	
+	# Turn bold on
+	def set_bold(self):
+		if self.fmt.bold:
+			return
+
+		self.file.write(CSI + "1m")
+		self.fmt.bold = True
+	
+	# Turn bold off
+	def reset_weight(self):
+		if not self.fmt.bold:
+			return
+
+		self.file.write(CSI + "22m")
+		self.fmt.bold = False
+	
+	# Reset all colours and formatting to default
+	def reset_all(self):
+		# Skip if already at default settings
+		default_fmt = TextFormat()
+		if self.fmt == TextFormat():
+			return
+
+		self.file.write(CSI + "0m")
+		self.fmt = default_fmt
+
+
+	# Set all format fields efficiently
+	def set_format(self, fmt):
+		# Exceptional case: set all fields to default
+		if fmt == TextFormat():
+			self.reset_all()
+			return
+
+		# Set fields individually.
+		# Each fields' methods will do nothing if nothing needs to be done.
+		self.set_fg(fmt.fg)
+
+		if fmt.bold:
+			self.set_bold()
+		else:
+			self.reset_weight()
+
+
 	# Write text to the tty.
 	#
 	# param string - May be a str or a FormattedString.
 	def write(self, string):
 		if isinstance(string, FormattedString):
-			self.set_fg(string.fg)
+			self.set_format(string.fmt)
 			string = string.string
 
 		self.file.write(string)
+
+
+# Ensure the colour is a normal colour code
+def sanitise_fg(colour):
+	colour = int(colour)
+	colour %= 10
 	
-	# Reset all colours and formatting to default
-	def reset_all(self):
-		self.set_fg(TTY.RESET_COLOUR)
-
-# Colour values which may be set to foreground or background
-TTY.BLACK        = 0
-TTY.RED          = 1
-TTY.GREEN        = 2
-TTY.BLUE         = 4
-TTY.YELLOW       = TTY.RED  | TTY.GREEN
-TTY.MAGENTA      = TTY.RED  | TTY.BLUE
-TTY.CYAN         = TTY.BLUE | TTY.GREEN
-TTY.WHITE        = TTY.RED  | TTY.GREEN | TTY.BLUE
-TTY.RESET_COLOUR = 9
-
-# Normal terminal settings
-TTY.FG_DEFAULT = TTY.WHITE
+	if colour == RESET_COLOUR:
+		colour = FG_DEFAULT
+	
+	return colour
 
 # Represents a string in a specific colour.
 class FormattedString:
-	def __init__(self, string, fg=TTY.RESET_COLOUR):
+	def __init__(self, string, fmt=TextFormat()):
 		self.string = string
-		self.fg = fg
-	
-	# Set this string's foreground colour.
-	# Returns itself to allow chaining.
-	def set_fg(self, fg):
-		self.fg = fg
-		return self
+		self.fmt = copy(fmt)
 
 # Characters used to represent each colour in ascii output
 DISPLAY_CHARS = "abcdefghijklmnopqrstuvwxyz"
-PREV_COLOUR = TTY.BLUE
+PREV_FMT = TextFormat(fg=BLUE)
 
-EMPTY_CHAR = FormattedString("·").set_fg(TTY.FG_DEFAULT)
+EMPTY_CHAR = FormattedString("·")
 
-ACTIVE_CHAR = FormattedString("#").set_fg(TTY.MAGENTA)
+ACTIVE_CHAR = FormattedString("#", TextFormat(fg=MAGENTA, bold=True))
 
 # Distance between two Lab colours.
 # Currently just euclidean distance.
@@ -444,7 +502,7 @@ def write_instructions(path_out, indexed_img, palette, *, pattern_name="your pat
 			tty.write(f"Colour {i} {colour_str}:\n")
 			display_chars[i] = active_pixel
 			_write_indexed_img(tty, indexed_img, display_chars)
-			prev_pixel = FormattedString(DISPLAY_CHARS[i]).set_fg(PREV_COLOUR)
+			prev_pixel = FormattedString(DISPLAY_CHARS[i], PREV_FMT)
 			display_chars[i] = prev_pixel
 			tty.write("\n")
 
