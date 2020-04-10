@@ -146,6 +146,12 @@ class TTY:
 		# Each fields' methods will do nothing if nothing needs to be done.
 		self.set_fg(fmt.fg)
 		self.set_weight(fmt.bold, fmt.faint)
+	
+	# Reset format from default formatting
+	def refresh_fmt(self):
+		my_fmt = self.fmt
+		self.fmt = TextFormat()
+		self.set_format(my_fmt)
 
 
 	# Write text to the tty.
@@ -156,7 +162,13 @@ class TTY:
 			self.set_format(string.fmt)
 			string = string.string
 
-		self.file.write(string)
+		lines = string.split("\n")
+
+		for i, line in enumerate(lines):
+			if i > 0:
+				self.file.write("\n")
+				self.refresh_fmt()
+			self.file.write(line)
 
 
 # Represents a string in a specific colour.
