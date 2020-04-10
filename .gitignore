@@ -1,3 +1,4 @@
 nh-pattern-instructions.txt
 *.png
 test-img
+__pycache__
