@@ -1,6 +1,7 @@
 #!/bin/python3
 
 import sys
+import re
 from copy import copy
 import argparse
 
@@ -71,6 +72,11 @@ class TTY:
 	def __init__(self, file=sys.stdout, fmt=TextFormat()):
 		self.file = file
 		self.fmt = copy(fmt)
+
+		# This property keeps track of formatting which it should be using,
+		# but currently isn't because it's only output whitespace since
+		# updating the format
+		self.pending_fmt = None
 
 	# Set foreground colour
 	#
@@ -149,9 +155,8 @@ class TTY:
 	
 	# Reset format from default formatting
 	def refresh_fmt(self):
-		my_fmt = self.fmt
+		self.pending_fmt = self.fmt
 		self.fmt = TextFormat()
-		self.set_format(my_fmt)
 
 
 	# Write text to the tty.
@@ -159,7 +164,7 @@ class TTY:
 	# param string - May be a str or a FormattedString.
 	def write(self, string):
 		if isinstance(string, FormattedString):
-			self.set_format(string.fmt)
+			self.pending_fmt = string.fmt
 			string = string.string
 
 		lines = string.split("\n")
@@ -168,6 +173,13 @@ class TTY:
 			if i > 0:
 				self.file.write("\n")
 				self.refresh_fmt()
+
+			# Avoid refreshing formatting for blank lines
+			if (self.pending_fmt != self.fmt
+					and not re.fullmatch(r"[ \n\t\r]*", line)):
+				self.set_format(self.pending_fmt)
+				self.pending_fmt = None
+
 			self.file.write(line)
 
 
