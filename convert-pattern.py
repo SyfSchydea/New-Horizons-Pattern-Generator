@@ -34,11 +34,22 @@ RESET_COLOUR = 9
 # Normal terminal settings
 FG_DEFAULT = WHITE
 
+# Ensure the colour is a normal colour code
+def sanitise_fg(colour):
+	colour = int(colour)
+	colour %= 10
+	
+	if colour == RESET_COLOUR:
+		colour = FG_DEFAULT
+	
+	return colour
+
 # Represents a text formatting style
 class TextFormat:
-	def __init__(self, *, fg=FG_DEFAULT, bold=False):
+	def __init__(self, *, fg=FG_DEFAULT, bold=False, faint=False):
 		self.fg = fg
 		self.bold = bold
+		self.faint = faint
 
 	def fg_matches(self, other_fg):
 		return self.fg == sanitise_fg(other_fg)
@@ -52,7 +63,8 @@ class TextFormat:
 			return False
 
 		return (self.fg_matches(other.fg)
-			and self.bold == other.bold)
+			and self.bold  == other.bold
+			and self.faint == other.faint)
 
 # Class for setting tty colour/formatting
 class TTY:
@@ -82,13 +94,22 @@ class TTY:
 		self.file.write(CSI + "1m")
 		self.fmt.bold = True
 	
-	# Turn bold off
+	# Turn faint on
+	def set_faint(self):
+		if self.fmt.faint:
+			return
+
+		self.file.write(CSI + "2m")
+		self.fmt.faint = True
+	
+	# Turn bold and faint off
 	def reset_weight(self):
-		if not self.fmt.bold:
+		if not (self.fmt.bold or self.fmt.faint):
 			return
 
 		self.file.write(CSI + "22m")
-		self.fmt.bold = False
+		self.fmt.bold  = False
+		self.fmt.faint = False
 	
 	# Reset all colours and formatting to default
 	def reset_all(self):
@@ -101,6 +122,19 @@ class TTY:
 		self.fmt = default_fmt
 
 
+	# Set bold/faint properties
+	def set_weight(self, bold=False, faint=False):
+		# If either bold or faint needs to be turned
+		# off, print the reset_weight code
+		if (not bold and self.fmt.bold) or (not faint and self.fmt.faint):
+			self.reset_weight()
+
+		# Turn bold and/or faint on individually
+		if bold:
+			self.set_bold()
+		if faint:
+			self.set_faint()
+
 	# Set all format fields efficiently
 	def set_format(self, fmt):
 		# Exceptional case: set all fields to default
@@ -111,11 +145,7 @@ class TTY:
 		# Set fields individually.
 		# Each fields' methods will do nothing if nothing needs to be done.
 		self.set_fg(fmt.fg)
-
-		if fmt.bold:
-			self.set_bold()
-		else:
-			self.reset_weight()
+		self.set_weight(fmt.bold, fmt.faint)
 
 
 	# Write text to the tty.
@@ -129,16 +159,6 @@ class TTY:
 		self.file.write(string)
 
 
-# Ensure the colour is a normal colour code
-def sanitise_fg(colour):
-	colour = int(colour)
-	colour %= 10
-	
-	if colour == RESET_COLOUR:
-		colour = FG_DEFAULT
-	
-	return colour
-
 # Represents a string in a specific colour.
 class FormattedString:
 	def __init__(self, string, fmt=TextFormat()):
@@ -147,9 +167,9 @@ class FormattedString:
 
 # Characters used to represent each colour in ascii output
 DISPLAY_CHARS = "abcdefghijklmnopqrstuvwxyz"
-PREV_FMT = TextFormat(fg=BLUE)
+PREV_FMT = TextFormat(fg=CYAN, faint=True)
 
-EMPTY_CHAR = FormattedString("·")
+EMPTY_CHAR = FormattedString("·", TextFormat(faint=True))
 
 ACTIVE_CHAR = FormattedString("#", TextFormat(fg=MAGENTA, bold=True))
 
