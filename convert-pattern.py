@@ -173,6 +173,12 @@ EMPTY_CHAR = FormattedString("·", TextFormat(faint=True))
 
 ACTIVE_CHAR = FormattedString("#", TextFormat(fg=MAGENTA, bold=True))
 
+# Format for heading text
+HEADER_FMT = TextFormat(fg=YELLOW, bold=True)
+
+# Format for colour HSV values in the above headers
+COLOUR_VALUES_FMT = TextFormat(fg=RED)
+
 # Distance between two Lab colours.
 # Currently just euclidean distance.
 #
@@ -465,8 +471,8 @@ def get_duplicate_colours(palette):
 #                      each line for the names of channels.
 # param palette      - Array of New Horizons colours.
 def _write_palette_channel(file, channel_idx, channel_name, header_width, palette):
-	file.write(channel_name.rjust(header_width) + ": ")
-	file.write("  ".join(str(colour[channel_idx]).rjust(2) for colour in palette))
+	file.write(FormattedString(channel_name.rjust(header_width) + ": ", HEADER_FMT))
+	file.write(FormattedString("  ".join(str(colour[channel_idx]).rjust(2) for colour in palette)))
 	file.write("\n")
 
 # Write an ascii version of an indexed image to the file.
@@ -506,9 +512,9 @@ def write_instructions(path_out, indexed_img, palette, *, pattern_name="your pat
 
 	with open(path_out, "w") as file:
 		tty = TTY(file)
-		tty.write(f"How to draw {pattern_name}:\n\n")
+		tty.write(FormattedString(f"How to draw {pattern_name}:\n\n", HEADER_FMT))
 
-		tty.write("Colour palette:\n")
+		tty.write(FormattedString("Colour palette:\n", HEADER_FMT))
 		header_width = 11
 		_write_palette_channel(tty, 0, "Hue",        header_width, palette)
 		_write_palette_channel(tty, 1, "Vividness",  header_width, palette)
@@ -518,13 +524,16 @@ def write_instructions(path_out, indexed_img, palette, *, pattern_name="your pat
 		# Print map for each colour in the palette.
 		display_chars = [empty_pixel] * palette_size
 		for i, col in enumerate(palette):
-			colour_str = "(" + " ".join(str(x) for x in col) + ")"
-			tty.write(f"Colour {i} {colour_str}:\n")
+			tty.write(FormattedString(f"Colour {i} (",               HEADER_FMT))
+			tty.write(FormattedString(" ".join(str(x) for x in col), COLOUR_VALUES_FMT))
+			tty.write(FormattedString("):\n",                        HEADER_FMT))
 			display_chars[i] = active_pixel
 			_write_indexed_img(tty, indexed_img, display_chars)
 			prev_pixel = FormattedString(DISPLAY_CHARS[i], PREV_FMT)
 			display_chars[i] = prev_pixel
 			tty.write("\n")
+
+		tty.reset_all()
 
 def output_preview_image(path_out, indexed_img, bgr_palette):
 	height, width = indexed_img.shape
