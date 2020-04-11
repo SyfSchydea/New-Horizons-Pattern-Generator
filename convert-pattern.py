@@ -266,6 +266,19 @@ def _quantise_channel(value, max_input_value, nh_range_min, nh_range_max, nh_dep
 	value = min(max(value, 0), nh_depth - 1) # Clamp to bounds
 	return value
 
+# Convert NH saturation or brightness value to continuous HSV channels.
+#
+# param value        - Input saturation/brightness NH value
+# param max_value    - Maximum value in the HSV colour space for the channel.
+# param nh_range_min - Lowest value which an NH colour can express in this channel.
+# param nh_range_max - Highest value which an NH colour can express in this channel.
+def _nh_to_channel(value, max_value, nh_range_min, nh_range_max, nh_depth):
+	value /= nh_depth - 1
+	value *= nh_range_max - nh_range_min
+	value += nh_range_min
+	value *= max_value
+	return value
+
 # Convert an HSV colour palette to New Horizon's subset of the HSV colour space.
 #
 # param palette - Array of colours in HSV.
@@ -290,18 +303,12 @@ def palette_nh_to_hsv(palette):
 	hsv_palette = np.zeros((palette_size, 3), dtype=np.float32)
 
 	for i in range(palette_size):
-		nh_colour  =     palette[i]
+		h, s, v    =     palette[i]
 		hsv_colour = hsv_palette[i]
 
-		hsv_colour[0] = nh_colour[0] /  NH_DEPTH_H      * HSV_H_MAX
-		hsv_colour[1] = nh_colour[1] / (NH_DEPTH_S - 1) * HSV_S_MAX
-
-		v = nh_colour[2]
-		v /= NH_DEPTH_V - 1
-		v *= NH_RANGE_V_MAX - NH_RANGE_V_MIN
-		v += NH_RANGE_V_MIN
-		v *= HSV_V_MAX
-		hsv_colour[2] = v
+		hsv_colour[0] = h /  NH_DEPTH_H      * HSV_H_MAX
+		hsv_colour[1] = s / (NH_DEPTH_S - 1) * HSV_S_MAX
+		hsv_colour[2] = _nh_to_channel(v, HSV_V_MAX, NH_RANGE_V_MIN, NH_RANGE_V_MAX, NH_DEPTH_V)
 
 	return hsv_palette
 
