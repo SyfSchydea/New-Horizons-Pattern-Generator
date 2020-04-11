@@ -110,11 +110,11 @@ def k_means(items, k, weight_map, *, seed=None):
 	n, dimensions = items.shape
 	dtype = items.dtype
 
-	# Initialise centers
-	centers = k_means_pp_init(items, k, rng)
+	# Initialise centers randomly
+	indices = rng.choice(range(n), k, False)
+	centers = items[indices]
 
 	while True:
-
 		# Sum of all points matched to each center
 		center_totals = np.zeros((k, dimensions), dtype=dtype)
 
