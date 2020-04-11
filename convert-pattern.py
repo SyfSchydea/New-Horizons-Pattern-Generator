@@ -1,12 +1,12 @@
 #!/bin/python3
 
 import sys
-import re
-from copy import copy
 import argparse
 
 import numpy as np
 import cv2
+
+import tty
 
 # Number of values per dimension in NH's colour space
 NH_DEPTH_H = 30
@@ -22,190 +22,19 @@ HSV_H_MAX = 360
 HSV_S_MAX =   1
 HSV_V_MAX =   1
 
-# Control Sequence Introducer
-CSI = "\x1b["
-
-# Colour values which may be set to foreground or background in a tty
-BLACK        = 0
-RED          = 1
-GREEN        = 2
-BLUE         = 4
-YELLOW       = RED  | GREEN
-MAGENTA      = RED  | BLUE
-CYAN         = BLUE | GREEN
-WHITE        = RED  | GREEN | BLUE
-RESET_COLOUR = 9
-
-# Normal terminal settings
-FG_DEFAULT = WHITE
-
-# Ensure the colour is a normal colour code
-def sanitise_fg(colour):
-	colour = int(colour)
-	colour %= 10
-	
-	if colour == RESET_COLOUR:
-		colour = FG_DEFAULT
-	
-	return colour
-
-# Represents a text formatting style
-class TextFormat:
-	def __init__(self, *, fg=FG_DEFAULT, bold=False, faint=False):
-		self.fg = fg
-		self.bold = bold
-		self.faint = faint
-
-	def fg_matches(self, other_fg):
-		return self.fg == sanitise_fg(other_fg)
-
-	def set_fg(self, fg):
-		self.fg = sanitise_fg(fg)
-	
-	# Return true if and only if `other` is an identical TextFormat
-	def __eq__(self, other):
-		if not isinstance(other, TextFormat):
-			return False
-
-		return (self.fg_matches(other.fg)
-			and self.bold  == other.bold
-			and self.faint == other.faint)
-
-# Class for setting tty colour/formatting
-class TTY:
-	def __init__(self, file=sys.stdout, fmt=TextFormat()):
-		self.file = file
-		self.fmt = copy(fmt)
-
-		# This property keeps track of formatting which it should be using,
-		# but currently isn't because it's only output whitespace since
-		# updating the format
-		self.pending_fmt = None
-
-	# Set foreground colour
-	#
-	# param colour - Colour to set foreground to.
-	#                Should be one of the colour constants defined below.
-	def set_fg(self, colour=7):
-		# If the terminal is already outputting
-		# in this colour, don't change that.
-		if self.fmt.fg_matches(colour):
-			return
-
-		# Write control code
-		self.fmt.set_fg(colour)
-		self.file.write(CSI + "3" + str(self.fmt.fg) + "m")
-	
-	# Turn bold on
-	def set_bold(self):
-		if self.fmt.bold:
-			return
-
-		self.file.write(CSI + "1m")
-		self.fmt.bold = True
-	
-	# Turn faint on
-	def set_faint(self):
-		if self.fmt.faint:
-			return
-
-		self.file.write(CSI + "2m")
-		self.fmt.faint = True
-	
-	# Turn bold and faint off
-	def reset_weight(self):
-		if not (self.fmt.bold or self.fmt.faint):
-			return
-
-		self.file.write(CSI + "22m")
-		self.fmt.bold  = False
-		self.fmt.faint = False
-	
-	# Reset all colours and formatting to default
-	def reset_all(self):
-		# Skip if already at default settings
-		default_fmt = TextFormat()
-		if self.fmt == TextFormat():
-			return
-
-		self.file.write(CSI + "0m")
-		self.fmt = default_fmt
-
-
-	# Set bold/faint properties
-	def set_weight(self, bold=False, faint=False):
-		# If either bold or faint needs to be turned
-		# off, print the reset_weight code
-		if (not bold and self.fmt.bold) or (not faint and self.fmt.faint):
-			self.reset_weight()
-
-		# Turn bold and/or faint on individually
-		if bold:
-			self.set_bold()
-		if faint:
-			self.set_faint()
-
-	# Set all format fields efficiently
-	def set_format(self, fmt):
-		# Exceptional case: set all fields to default
-		if fmt == TextFormat():
-			self.reset_all()
-			return
-
-		# Set fields individually.
-		# Each fields' methods will do nothing if nothing needs to be done.
-		self.set_fg(fmt.fg)
-		self.set_weight(fmt.bold, fmt.faint)
-	
-	# Reset format from default formatting
-	def refresh_fmt(self):
-		self.pending_fmt = self.fmt
-		self.fmt = TextFormat()
-
-
-	# Write text to the tty.
-	#
-	# param string - May be a str or a FormattedString.
-	def write(self, string):
-		if isinstance(string, FormattedString):
-			self.pending_fmt = string.fmt
-			string = string.string
-
-		lines = string.split("\n")
-
-		for i, line in enumerate(lines):
-			if i > 0:
-				self.file.write("\n")
-				self.refresh_fmt()
-
-			# Avoid refreshing formatting for blank lines
-			if (self.pending_fmt != self.fmt
-					and not re.fullmatch(r"[ \n\t\r]*", line)):
-				self.set_format(self.pending_fmt)
-				self.pending_fmt = None
-
-			self.file.write(line)
-
-
-# Represents a string in a specific colour.
-class FormattedString:
-	def __init__(self, string, fmt=TextFormat()):
-		self.string = string
-		self.fmt = copy(fmt)
-
 # Characters used to represent each colour in ascii output
 DISPLAY_CHARS = "abcdefghijklmnopqrstuvwxyz"
-PREV_FMT = TextFormat(fg=CYAN, faint=True)
+PREV_FMT = tty.TextFormat(fg=tty.CYAN, faint=True)
 
-EMPTY_CHAR = FormattedString("·", TextFormat(faint=True))
+EMPTY_CHAR = tty.FormattedString("·", tty.TextFormat(faint=True))
 
-ACTIVE_CHAR = FormattedString("#", TextFormat(fg=MAGENTA, bold=True))
+ACTIVE_CHAR = tty.FormattedString("#", tty.TextFormat(fg=tty.MAGENTA, bold=True))
 
 # Format for heading text
-HEADER_FMT = TextFormat(fg=YELLOW, bold=True)
+HEADER_FMT = tty.TextFormat(fg=tty.YELLOW, bold=True)
 
 # Format for colour HSV values in the above headers
-COLOUR_VALUES_FMT = TextFormat(fg=RED)
+COLOUR_VALUES_FMT = tty.TextFormat(fg=tty.RED)
 
 # Distance between two Lab colours.
 # Currently just euclidean distance.
@@ -506,8 +335,8 @@ def get_duplicate_colours(palette):
 #                      each line for the names of channels.
 # param palette      - Array of New Horizons colours.
 def _write_palette_channel(file, channel_idx, channel_name, header_width, palette):
-	file.write(FormattedString(channel_name.rjust(header_width) + ": ", HEADER_FMT))
-	file.write(FormattedString("  ".join(str(colour[channel_idx]).rjust(2) for colour in palette)))
+	file.write(tty.FormattedString(channel_name.rjust(header_width) + ": ", HEADER_FMT))
+	file.write(tty.FormattedString("  ".join(str(colour[channel_idx]).rjust(2) for colour in palette)))
 	file.write("\n")
 
 # Write an ascii version of an indexed image to the file.
@@ -545,30 +374,30 @@ def write_instructions(path_out, indexed_img, palette, *, pattern_name="your pat
 	height, width   = indexed_img.shape
 	palette_size, _ =     palette.shape
 
-	with open(path_out, "w") as file:
-		tty = TTY(file)
-		tty.write(FormattedString(f"How to draw {pattern_name}:\n\n", HEADER_FMT))
+	with open(path_out, "w") as file_raw:
+		file = tty.TTY(file_raw)
+		file.write(tty.FormattedString(f"How to draw {pattern_name}:\n\n", HEADER_FMT))
 
-		tty.write(FormattedString("Colour palette:\n", HEADER_FMT))
+		file.write(tty.FormattedString("Colour palette:\n", HEADER_FMT))
 		header_width = 11
-		_write_palette_channel(tty, 0, "Hue",        header_width, palette)
-		_write_palette_channel(tty, 1, "Vividness",  header_width, palette)
-		_write_palette_channel(tty, 2, "Brightness", header_width, palette)
-		tty.write("\n")
+		_write_palette_channel(file, 0, "Hue",        header_width, palette)
+		_write_palette_channel(file, 1, "Vividness",  header_width, palette)
+		_write_palette_channel(file, 2, "Brightness", header_width, palette)
+		file.write("\n")
 
 		# Print map for each colour in the palette.
 		display_chars = [empty_pixel] * palette_size
 		for i, col in enumerate(palette):
-			tty.write(FormattedString(f"Colour {i} (",               HEADER_FMT))
-			tty.write(FormattedString(" ".join(str(x) for x in col), COLOUR_VALUES_FMT))
-			tty.write(FormattedString("):\n",                        HEADER_FMT))
+			file.write(tty.FormattedString(f"Colour {i} (",               HEADER_FMT))
+			file.write(tty.FormattedString(" ".join(str(x) for x in col), COLOUR_VALUES_FMT))
+			file.write(tty.FormattedString("):\n",                        HEADER_FMT))
 			display_chars[i] = active_pixel
-			_write_indexed_img(tty, indexed_img, display_chars)
-			prev_pixel = FormattedString(DISPLAY_CHARS[i], PREV_FMT)
+			_write_indexed_img(file, indexed_img, display_chars)
+			prev_pixel = tty.FormattedString(DISPLAY_CHARS[i], PREV_FMT)
 			display_chars[i] = prev_pixel
-			tty.write("\n")
+			file.write("\n")
 
-		tty.reset_all()
+		file.reset_all()
 
 def output_preview_image(path_out, indexed_img, bgr_palette):
 	height, width = indexed_img.shape
