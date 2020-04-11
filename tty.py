@@ -63,9 +63,10 @@ class TextFormat:
 
 # Class for setting tty colour/formatting
 class TTY:
-	def __init__(self, file=sys.stdout, fmt=TextFormat()):
+	def __init__(self, file=sys.stdout, fmt=TextFormat(), *, use_colour=True):
 		self.file = file
 		self.fmt = copy(fmt)
+		self.use_colour = bool(use_colour)
 
 		# This property keeps track of formatting which it should be using,
 		# However, it may not always be using this formatting if no non-
@@ -77,6 +78,9 @@ class TTY:
 	# param colour - Colour to set foreground to.
 	#                Should be one of the colour constants defined below.
 	def set_fg(self, colour=7):
+		if not self.use_colour:
+			return
+
 		# If the terminal is already outputting
 		# in this colour, don't change that.
 		if self.fmt.fg_matches(colour):
@@ -85,41 +89,53 @@ class TTY:
 		# Write control code
 		self.fmt.set_fg(colour)
 		self.file.write(CSI + "3" + str(self.fmt.fg) + "m")
-	
+
 	# Turn bold on
 	def set_bold(self):
+		if not self.use_colour:
+			return
+
 		if self.fmt.bold.definitely_true():
 			return
 
-		self.file.write(CSI + "1m")
 		self.fmt.bold = Trit.true
-	
+		self.file.write(CSI + "1m")
+
 	# Turn faint on
 	def set_faint(self):
+		if not self.use_colour:
+			return
+
 		if self.fmt.faint:
 			return
 
-		self.file.write(CSI + "2m")
 		self.fmt.faint = True
-	
+		self.file.write(CSI + "2m")
+
 	# Turn bold and faint off
 	def reset_weight(self):
+		if not self.use_colour:
+			return
+
 		if not (self.fmt.bold.maybe_true() or self.fmt.faint):
 			return
 
-		self.file.write(CSI + "22m")
 		self.fmt.bold  = Trit.false
 		self.fmt.faint = False
-	
+		self.file.write(CSI + "22m")
+
 	# Reset all colours and formatting to default
 	def reset_all(self):
+		if not self.use_colour:
+			return
+
 		# Skip if already at default settings
 		default_fmt = TextFormat()
 		if self.fmt == TextFormat():
 			return
 
-		self.file.write(CSI + "0m")
 		self.fmt = default_fmt
+		self.file.write(CSI + "0m")
 
 
 	# Set bold/faint properties
@@ -190,6 +206,7 @@ if __name__ == "__main__":
 	# Main method to test output
 	# Should probably remove this stuff before merging to master
 	
-	f = TTY()
-	f.write(FormattedString("bold text\n",   TextFormat(bold=True)))
-	f.write(FormattedString("normal text\n", TextFormat()))
+	f = TTY(use_colour=False)
+	f.write(FormattedString("blue text\n", TextFormat(fg=BLUE, bold=True)))
+	f.use_colour = True
+	f.write(FormattedString("red text\n",  TextFormat(fg=RED,  bold=True)))
