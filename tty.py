@@ -37,10 +37,10 @@ def sanitise_fg(colour):
 
 # Represents a text formatting style
 class TextFormat:
-	def __init__(self, *, fg=FG_DEFAULT, bold=False, faint=False):
+	def __init__(self, *, fg=FG_DEFAULT, bold=Trit.false, faint=Trit.false):
 		self.fg = fg
-		self.bold = Trit.of(bold)
-		self.faint = faint
+		self.bold  = Trit.of(bold)
+		self.faint = Trit.of(faint)
 
 	def fg_matches(self, other_fg):
 		return self.fg == sanitise_fg(other_fg)
@@ -51,6 +51,7 @@ class TextFormat:
 	# Ambiguously reset formatting to default.
 	def maybe_reset(self):
 		self.bold = self.bold.maybe_set(False)
+		self.faint = self.faint.maybe_set(False)
 	
 	# Return true if and only if `other` is an identical TextFormat
 	def __eq__(self, other):
@@ -59,7 +60,7 @@ class TextFormat:
 
 		return (self.fg_matches(other.fg)
 			and self.bold.definitely_equals(other.bold)
-			and self.faint == other.faint)
+			and self.faint.definitely_equals(other.faint))
 
 # Class for setting tty colour/formatting
 class TTY:
@@ -96,20 +97,20 @@ class TTY:
 	
 	# Turn faint on
 	def set_faint(self):
-		if self.fmt.faint:
+		if self.fmt.faint.definitely_true():
 			return
 
 		self.file.write(CSI + "2m")
-		self.fmt.faint = True
+		self.fmt.faint = Trit.true
 	
 	# Turn bold and faint off
 	def reset_weight(self):
-		if not (self.fmt.bold.maybe_true() or self.fmt.faint):
+		if self.fmt.bold.definitely_false() and self.fmt.faint.definitely_false():
 			return
 
 		self.file.write(CSI + "22m")
 		self.fmt.bold  = Trit.false
-		self.fmt.faint = False
+		self.fmt.faint = Trit.false
 	
 	# Reset all colours and formatting to default
 	def reset_all(self):
@@ -124,12 +125,13 @@ class TTY:
 
 	# Set bold/faint properties
 	def set_weight(self, bold=False, faint=False):
-		bold = bool(bold)
+		bold  = bool(bold)
+		faint = bool(faint)
 
 		# If either bold or faint needs to be turned
 		# off, print the reset_weight code
 		if ((not bold and self.fmt.bold.maybe_true())
-				or (not faint and self.fmt.faint)):
+				or (not faint and self.fmt.faint.maybe_true())):
 			self.reset_weight()
 
 		# Turn bold and/or faint on individually
@@ -191,5 +193,5 @@ if __name__ == "__main__":
 	# Should probably remove this stuff before merging to master
 	
 	f = TTY()
-	f.write(FormattedString("bold text\n",   TextFormat(bold=True)))
+	f.write(FormattedString("faint text\n",  TextFormat(faint=True)))
 	f.write(FormattedString("normal text\n", TextFormat()))
