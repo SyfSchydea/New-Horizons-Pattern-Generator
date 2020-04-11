@@ -251,6 +251,21 @@ def convert_palette(palette, *conversions):
 
 	return np.reshape(palette_img, (n, depth))
 
+# Convert a continuous saturation or brightness
+# value to the closest NH palette value.
+#
+# param value           - Input saturation/brightness value.
+# param max_input_value - Maximum value in the HSV colour space for the channel.
+# param nh_range_min    - Lowest value which an NH colour can express in this channel.
+# param nh_range_max    - Highest value which an NH colour can express in this channel.
+def _quantise_channel(value, max_input_value, nh_range_min, nh_range_max, nh_depth):
+	value /= max_input_value                 # Map to range 0-1
+	value -= nh_range_min                    # Move min value to zero
+	value /= (nh_range_max - nh_range_min)   # Move max value to one
+	value = round(value * (nh_depth - 1))    # Round to nearest NH value
+	value = min(max(value, 0), nh_depth - 1) # Clamp to bounds
+	return value
+
 # Convert an HSV colour palette to New Horizon's subset of the HSV colour space.
 #
 # param palette - Array of colours in HSV.
@@ -265,13 +280,7 @@ def palette_hsv_to_nh(palette):
 
 		nh_colour[0] = round(h / HSV_H_MAX *  NH_DEPTH_H) % NH_DEPTH_H
 		nh_colour[1] = round(s / HSV_S_MAX * (NH_DEPTH_S - 1))
-
-		v /= HSV_V_MAX                         # Map to range 0-1
-		v -= NH_RANGE_V_MIN                    # Move min value to zero
-		v /= (NH_RANGE_V_MAX - NH_RANGE_V_MIN) # Move max value to one
-		v = round(v * (NH_DEPTH_V - 1))        # Round to nearest NH value
-		v = min(max(v, 0), NH_DEPTH_V - 1)     # Clamp to bounds
-		nh_colour[2] = v
+		nh_colour[2] = _quantise_channel(v, HSV_V_MAX, NH_RANGE_V_MIN, NH_RANGE_V_MAX, NH_DEPTH_V)
 
 	return nh_palette
 
