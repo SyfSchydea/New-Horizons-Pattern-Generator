@@ -246,6 +246,43 @@ def convert_palette(palette, *conversions):
 
 	return np.reshape(palette_img, (n, depth))
 
+# Convert a continuous saturation or brightness
+# value to the closest NH palette value.
+#
+# param value           - Input saturation/brightness value.
+# param max_input_value - Maximum value in the HSV colour space for the channel.
+# param nh_range_min    - Lowest value which an NH colour can express in this channel.
+# param nh_range_max    - Highest value which an NH colour can express in this channel.
+def _quantise_channel(value, max_input_value, nh_range_min, nh_range_max, nh_depth):
+	value /= max_input_value                 # Map to range 0-1
+	value -= nh_range_min                    # Move min value to zero
+	value /= (nh_range_max - nh_range_min)   # Move max value to one
+	value = round(value * (nh_depth - 1))    # Round to nearest NH value
+	value = min(max(value, 0), nh_depth - 1) # Clamp to bounds
+	return value
+
+# Convert NH saturation or brightness value to continuous HSV channels.
+#
+# param value        - Input saturation/brightness NH value
+# param max_value    - Maximum value in the HSV colour space for the channel.
+# param nh_range_min - Lowest value which an NH colour can express in this channel.
+# param nh_range_max - Highest value which an NH colour can express in this channel.
+def _nh_to_channel(value, max_value, nh_range_min, nh_range_max, nh_depth):
+	value /= nh_depth - 1
+	value *= nh_range_max - nh_range_min
+	value += nh_range_min
+	value *= max_value
+	return value
+
+# Fetch the maximum saturation of the NH colours, based on the brightness value.
+# This is 100% for brightness values from 0 to 7,
+# or between 100% and 97.5% for brightness values from 7 to 14
+def nh_range_s_max(nh_brightness):
+	if nh_brightness <= 7:
+		return 1
+
+	return (287 - nh_brightness) / 280
+
 # Convert an HSV colour palette to New Horizon's subset of the HSV colour space.
 #
 # param palette - Array of colours in HSV.
@@ -259,14 +296,10 @@ def palette_hsv_to_nh(palette):
 		h, s, v = palette[i]
 
 		nh_colour[0] = round(h / HSV_H_MAX *  NH_DEPTH_H) % NH_DEPTH_H
-		nh_colour[1] = round(s / HSV_S_MAX * (NH_DEPTH_S - 1))
-
-		v /= HSV_V_MAX                         # Map to range 0-1
-		v -= NH_RANGE_V_MIN                    # Move min value to zero
-		v /= (NH_RANGE_V_MAX - NH_RANGE_V_MIN) # Move max value to one
-		v = round(v * (NH_DEPTH_V - 1))        # Round to nearest NH value
-		v = min(max(v, 0), NH_DEPTH_V - 1)     # Clamp to bounds
-		nh_colour[2] = v
+		nh_colour[2] = nh_v = _quantise_channel(v, HSV_V_MAX,
+			NH_RANGE_V_MIN, NH_RANGE_V_MAX,       NH_DEPTH_V)
+		nh_colour[1]        = _quantise_channel(s, HSV_S_MAX,
+			0,              nh_range_s_max(nh_v), NH_DEPTH_S)
 
 	return nh_palette
 
@@ -276,18 +309,14 @@ def palette_nh_to_hsv(palette):
 	hsv_palette = np.zeros((palette_size, 3), dtype=np.float32)
 
 	for i in range(palette_size):
-		nh_colour  =     palette[i]
+		h, s, v    =     palette[i]
 		hsv_colour = hsv_palette[i]
 
-		hsv_colour[0] = nh_colour[0] /  NH_DEPTH_H      * HSV_H_MAX
-		hsv_colour[1] = nh_colour[1] / (NH_DEPTH_S - 1) * HSV_S_MAX
-
-		v = nh_colour[2]
-		v /= NH_DEPTH_V - 1
-		v *= NH_RANGE_V_MAX - NH_RANGE_V_MIN
-		v += NH_RANGE_V_MIN
-		v *= HSV_V_MAX
-		hsv_colour[2] = v
+		hsv_colour[0] = h /  NH_DEPTH_H      * HSV_H_MAX
+		hsv_colour[2] = _nh_to_channel(v, HSV_V_MAX,
+			NH_RANGE_V_MIN, NH_RANGE_V_MAX,    NH_DEPTH_V)
+		hsv_colour[1] = _nh_to_channel(s, HSV_S_MAX,
+			0,              nh_range_s_max(v), NH_DEPTH_S)
 
 	return hsv_palette
 
@@ -454,11 +483,12 @@ def pick_palette(img, palette_size, seed, weight_map, *, retry_on_dupe=False, lo
 		# Convert the palette into HSV
 		log.info("Converting palette to HSV...")
 		hsv_palette = convert_palette(colour_palette, cv2.COLOR_Lab2RGB, cv2.COLOR_RGB2HSV)
-		log.debug("HSV Palette:", hsv_palette)
+		log.debug("HSV Palette:\n", hsv_palette)
 
 		# Round to ACNH's colour space
 		log.info("Converting to NH colours...")
 		nh_palette = palette_hsv_to_nh(hsv_palette)
+		log.debug("NH Palette:\n", nh_palette)
 
 		# Check if any colours are identical after rounding
 		duplicate_colours = get_duplicate_colours(nh_palette)
@@ -502,9 +532,9 @@ def analyse_img(path, weight_map_path, img_out, instr_out, *,
 
 	# Convert the NH colours to BGR(1) to Lab
 	hsv_approximated = palette_nh_to_hsv(nh_palette)
-	log.debug("NH-HSV Palette:", hsv_approximated)
+	log.debug("NH-HSV Palette:\n", hsv_approximated)
 	bgr_approx = convert_palette(hsv_approximated, cv2.COLOR_HSV2BGR)
-	log.debug("NH-BGR Palette:", bgr_approx)
+	log.debug("NH-BGR Palette:\n", bgr_approx)
 
 	# Create indexed image using clusters
 	log.info("Creating indexed image...")
