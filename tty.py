@@ -6,6 +6,8 @@ import sys
 from copy import copy
 import re
 
+from ternary import Trit
+
 # Control Sequence Introducer
 CSI = "\x1b["
 
@@ -37,7 +39,7 @@ def sanitise_fg(colour):
 class TextFormat:
 	def __init__(self, *, fg=FG_DEFAULT, bold=False, faint=False):
 		self.fg = fg
-		self.bold = bold
+		self.bold = Trit.of(bold)
 		self.faint = faint
 
 	def fg_matches(self, other_fg):
@@ -46,13 +48,17 @@ class TextFormat:
 	def set_fg(self, fg):
 		self.fg = sanitise_fg(fg)
 	
+	# Ambiguously reset formatting to default.
+	def maybe_reset(self):
+		self.bold = self.bold.maybe_set(False)
+	
 	# Return true if and only if `other` is an identical TextFormat
 	def __eq__(self, other):
 		if not isinstance(other, TextFormat):
 			return False
 
 		return (self.fg_matches(other.fg)
-			and self.bold  == other.bold
+			and self.bold.definitely_equals(other.bold)
 			and self.faint == other.faint)
 
 # Class for setting tty colour/formatting
@@ -62,9 +68,9 @@ class TTY:
 		self.fmt = copy(fmt)
 
 		# This property keeps track of formatting which it should be using,
-		# but currently isn't because it's only output whitespace since
-		# updating the format
-		self.pending_fmt = None
+		# However, it may not always be using this formatting if no non-
+		# whitespace characters have been printed since setting the format.
+		self.pending_fmt = copy(fmt)
 
 	# Set foreground colour
 	#
@@ -82,11 +88,11 @@ class TTY:
 	
 	# Turn bold on
 	def set_bold(self):
-		if self.fmt.bold:
+		if self.fmt.bold.definitely_true():
 			return
 
 		self.file.write(CSI + "1m")
-		self.fmt.bold = True
+		self.fmt.bold = Trit.true
 	
 	# Turn faint on
 	def set_faint(self):
@@ -98,11 +104,11 @@ class TTY:
 	
 	# Turn bold and faint off
 	def reset_weight(self):
-		if not (self.fmt.bold or self.fmt.faint):
+		if not (self.fmt.bold.maybe_true() or self.fmt.faint):
 			return
 
 		self.file.write(CSI + "22m")
-		self.fmt.bold  = False
+		self.fmt.bold  = Trit.false
 		self.fmt.faint = False
 	
 	# Reset all colours and formatting to default
@@ -118,9 +124,12 @@ class TTY:
 
 	# Set bold/faint properties
 	def set_weight(self, bold=False, faint=False):
+		bold = bool(bold)
+
 		# If either bold or faint needs to be turned
 		# off, print the reset_weight code
-		if (not bold and self.fmt.bold) or (not faint and self.fmt.faint):
+		if ((not bold and self.fmt.bold.maybe_true())
+				or (not faint and self.fmt.faint)):
 			self.reset_weight()
 
 		# Turn bold and/or faint on individually
@@ -141,10 +150,11 @@ class TTY:
 		self.set_fg(fmt.fg)
 		self.set_weight(fmt.bold, fmt.faint)
 	
-	# Reset format from default formatting
+	# Simulate the format maybe getting reset on newline.
+	# When outputting directly to a tty, this does not happen,
+	# But when outputting to `less -R`, this does, hence the ambiguity.
 	def refresh_fmt(self):
-		self.pending_fmt = self.fmt
-		self.fmt = TextFormat()
+		self.fmt.maybe_reset()
 
 
 	# Write text to the tty.
@@ -162,11 +172,10 @@ class TTY:
 				self.file.write("\n")
 				self.refresh_fmt()
 
-			# Avoid refreshing formatting for blank lines
+			# Avoid updating formatting for whitespace
 			if (self.pending_fmt != self.fmt
 					and not re.fullmatch(r"[ \n\t\r]*", line)):
 				self.set_format(self.pending_fmt)
-				self.pending_fmt = None
 
 			self.file.write(line)
 
@@ -176,3 +185,11 @@ class FormattedString:
 	def __init__(self, string, fmt=TextFormat()):
 		self.string = string
 		self.fmt = copy(fmt)
+
+if __name__ == "__main__":
+	# Main method to test output
+	# Should probably remove this stuff before merging to master
+	
+	f = TTY()
+	f.write(FormattedString("bold text\n",   TextFormat(bold=True)))
+	f.write(FormattedString("normal text\n", TextFormat()))

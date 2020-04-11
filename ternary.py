@@ -64,6 +64,15 @@ class Trit(object):
 
 		return Trit.of(self.value == other.value)
 
+	def __ne__(self, other):
+		return -(self == other)
+
+	def definitely_equals(self, other):
+		return (self == other).definitely_true()
+
+	def definitely_not_equals(self, other):
+		return (self == other).definitely_false()
+
 	# Logical conjunction (AND)
 	# Represented by multiplication operator (*)
 	def __mul__(self, other):
