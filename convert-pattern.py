@@ -11,6 +11,9 @@ NH_DEPTH_H = 30
 NH_DEPTH_S = 15
 NH_DEPTH_V = 15
 
+# Range of HSV values which NH's colours space is able to represent
+NH_RANGE_V_MIN = 0.05
+
 # Max values in OpenCV's HSV colour space
 HSV_H_MAX = 360
 HSV_S_MAX =   1
@@ -261,7 +264,13 @@ def palette_hsv_to_nh(palette):
 
 		nh_colour[0] = round(h / HSV_H_MAX *  NH_DEPTH_H) % NH_DEPTH_H
 		nh_colour[1] = round(s / HSV_S_MAX * (NH_DEPTH_S - 1))
-		nh_colour[2] = round(v / HSV_V_MAX * (NH_DEPTH_V - 1))
+
+		v /= HSV_V_MAX                     # Map to range 0-1
+		v -= NH_RANGE_V_MIN                # Move min value to zero
+		v /= (1 - NH_RANGE_V_MIN)          # Move max value to one
+		v = round(v * (NH_DEPTH_V - 1))    # Round to nearest NH value
+		v = min(max(v, 0), NH_DEPTH_V - 1) # Clamp to bounds
+		nh_colour[2] = v
 
 	return nh_palette
 
@@ -276,7 +285,13 @@ def palette_nh_to_hsv(palette):
 
 		hsv_colour[0] = nh_colour[0] /  NH_DEPTH_H      * HSV_H_MAX
 		hsv_colour[1] = nh_colour[1] / (NH_DEPTH_S - 1) * HSV_S_MAX
-		hsv_colour[2] = nh_colour[2] / (NH_DEPTH_V - 1) * HSV_V_MAX
+
+		v = nh_colour[2]
+		v /= NH_DEPTH_V - 1
+		v *= 1 - NH_RANGE_V_MIN
+		v += NH_RANGE_V_MIN
+		v *= HSV_V_MAX
+		hsv_colour[2] = v
 
 	return hsv_palette
 
