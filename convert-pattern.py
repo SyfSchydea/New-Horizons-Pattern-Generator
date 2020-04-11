@@ -69,15 +69,13 @@ def k_means_pp_init(items, k, rng):
 	# Create array of item distances to their nearest centers
 	item_distances = np.zeros(n, dtype=np.float32) + np.inf
 
-	# Generate first center randomly
+	# Generate first center using uniform weights
 	first_idx = rng.choice(range(n))
 	centers[0] = items[first_idx]
 
 	# For each remaining center
 	for center_idx in range(1, k):
 		prev_center = centers[center_idx - 1]
-		furthest_distance = -1
-		furthest_center = None
 		for item_idx in range(n):
 			# Update item distance
 			item = items[item_idx]
@@ -85,14 +83,12 @@ def k_means_pp_init(items, k, rng):
 			if dist < item_distances[item_idx]:
 				item_distances[item_idx] = dist
 
-			# Find item furthest from a center
-			dist = item_distances[item_idx]
-			if dist > furthest_distance:
-				furthest_distance = dist
-				furthest_center = item
-
-		# Use as next center
-		centers[center_idx] = furthest_center
+		# Choose next center using weights equal to the
+		# square of the distance to the nearest point.
+		weights = item_distances ** 2
+		weights = weights / sum(weights)
+		idx = rng.choice(range(n), p=weights)
+		centers[center_idx] = items[idx]
 
 	# Return all centers.
 	return centers
