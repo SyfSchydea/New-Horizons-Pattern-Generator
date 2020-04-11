@@ -74,8 +74,8 @@ class Trit(object):
 		return (self == other).definitely_false()
 
 	# Logical conjunction (AND)
-	# Represented by multiplication operator (*)
-	def __mul__(self, other):
+	# Represented by the bitwise and operator (&)
+	def __and__(self, other):
 		if self.definitely_false():
 			return Trit.false
 
@@ -89,13 +89,13 @@ class Trit(object):
 			return Trit.maybe
 
 		return other
-	
-	def __rmul__(self, other):
-		return self.__mul__(other)
+
+	def __rand__(self, other):
+		return self.__and__(other)
 
 	# Logical disjunction (OR)
-	# Represented by addition operator (+)
-	def __add__(self, other):
+	# Represented by the bitwise or operator (|)
+	def __or__(self, other):
 		if self.definitely_true():
 			return Trit.true
 
@@ -109,22 +109,17 @@ class Trit(object):
 			return Trit.maybe
 
 		return other
-	
-	def __radd__(self, other):
-		return self.__add__(other)
+
+	def __ror__(self, other):
+		return self.__or__(other)
 	
 	# Logical Inversion
-	# Represented by negation operator (unary -)
-	def __neg__(self):
+	# Represented by the bitwise inversion operator (~)
+	def __invert__(self):
 		if not self.known:
 			return Trit.maybe
 
 		return Trit.of(not self.value)
-	
-	# Overload of unary +
-	# For consistency
-	def __pos__(self):
-		return self
 
 	# Coerce this value to bool.
 	# Will throw a value error if self is maybe
