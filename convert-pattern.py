@@ -13,6 +13,10 @@ NH_DEPTH_H = 30
 NH_DEPTH_S = 15
 NH_DEPTH_V = 15
 
+# Range of HSV values which NH's colours space is able to represent
+NH_RANGE_V_MIN = 0.05
+NH_RANGE_V_MAX = 0.9
+
 # Max values in OpenCV's HSV colour space
 HSV_H_MAX = 360
 HSV_S_MAX =   1
@@ -251,15 +255,13 @@ def k_means_pp_init(items, k, rng):
 	# Create array of item distances to their nearest centers
 	item_distances = np.zeros(n, dtype=np.float32) + np.inf
 
-	# Generate first center randomly
+	# Generate first center using uniform weights
 	first_idx = rng.choice(range(n))
 	centers[0] = items[first_idx]
 
 	# For each remaining center
 	for center_idx in range(1, k):
 		prev_center = centers[center_idx - 1]
-		furthest_distance = -1
-		furthest_center = None
 		for item_idx in range(n):
 			# Update item distance
 			item = items[item_idx]
@@ -267,14 +269,12 @@ def k_means_pp_init(items, k, rng):
 			if dist < item_distances[item_idx]:
 				item_distances[item_idx] = dist
 
-			# Find item furthest from a center
-			dist = item_distances[item_idx]
-			if dist > furthest_distance:
-				furthest_distance = dist
-				furthest_center = item
-
-		# Use as next center
-		centers[center_idx] = furthest_center
+		# Choose next center using weights equal to the
+		# square of the distance to the nearest point.
+		weights = item_distances ** 2
+		weights = weights / sum(weights)
+		idx = rng.choice(range(n), p=weights)
+		centers[center_idx] = items[idx]
 
 	# Return all centers.
 	return centers
@@ -296,7 +296,6 @@ def k_means(items, k, weight_map, *, seed=None):
 	centers = k_means_pp_init(items, k, rng)
 
 	while True:
-
 		# Sum of all points matched to each center
 		center_totals = np.zeros((k, dimensions), dtype=dtype)
 
@@ -443,7 +442,13 @@ def palette_hsv_to_nh(palette):
 
 		nh_colour[0] = round(h / HSV_H_MAX *  NH_DEPTH_H) % NH_DEPTH_H
 		nh_colour[1] = round(s / HSV_S_MAX * (NH_DEPTH_S - 1))
-		nh_colour[2] = round(v / HSV_V_MAX * (NH_DEPTH_V - 1))
+
+		v /= HSV_V_MAX                         # Map to range 0-1
+		v -= NH_RANGE_V_MIN                    # Move min value to zero
+		v /= (NH_RANGE_V_MAX - NH_RANGE_V_MIN) # Move max value to one
+		v = round(v * (NH_DEPTH_V - 1))        # Round to nearest NH value
+		v = min(max(v, 0), NH_DEPTH_V - 1)     # Clamp to bounds
+		nh_colour[2] = v
 
 	return nh_palette
 
@@ -458,7 +463,13 @@ def palette_nh_to_hsv(palette):
 
 		hsv_colour[0] = nh_colour[0] /  NH_DEPTH_H      * HSV_H_MAX
 		hsv_colour[1] = nh_colour[1] / (NH_DEPTH_S - 1) * HSV_S_MAX
-		hsv_colour[2] = nh_colour[2] / (NH_DEPTH_V - 1) * HSV_V_MAX
+
+		v = nh_colour[2]
+		v /= NH_DEPTH_V - 1
+		v *= NH_RANGE_V_MAX - NH_RANGE_V_MIN
+		v += NH_RANGE_V_MIN
+		v *= HSV_V_MAX
+		hsv_colour[2] = v
 
 	return hsv_palette
 
