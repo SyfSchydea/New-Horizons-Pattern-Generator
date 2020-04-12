@@ -273,16 +273,3 @@ class FormattedString:
 	def __init__(self, string, fmt=TextFormat()):
 		self.string = string
 		self.fmt = copy(fmt)
-
-if __name__ == "__main__":
-	# Main method to test output
-	# Should probably remove this stuff before merging to master
-	
-	f = TTY(use_colour=True)
-	f.write(FormattedString("blue text\n", TextFormat(fg=BLUE, bold=True)))
-	f.write(FormattedString("faint text\n",  TextFormat(faint=True)))
-	f.write(FormattedString("normal text\n", TextFormat()))
-	f.write(FormattedString("red text\n",  TextFormat(fg=RED,  bold=True)))
-	f.write(FormattedString("red text", TextFormat(fg=RED)))
-	f.write(FormattedString(" and", TextFormat(fg=RED)))
-	f.write(FormattedString(" more red text", TextFormat(fg=RED)))
