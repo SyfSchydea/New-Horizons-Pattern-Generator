@@ -248,3 +248,20 @@ def pick_palette(img, palette_size, seed, weight_map, *, retry_on_dupe=False, lo
 
 		seed += 1
 		log.info("Palette has duplicate colours. Retrying with seed:", seed)
+
+# Write a preview of the pattern to a file.
+# Expects the palette to already be converted to BGR from 0 to 1.
+def output_preview_image(path_out, indexed_img, bgr_palette):
+	height, width = indexed_img.shape
+	palette_size, depth = bgr_palette.shape
+
+	bgr_out_palette = (bgr_palette * 255).astype(np.uint8)
+
+	bgr_img = np.zeros((height, width, depth), dtype=np.uint8)
+	for x in range(width):
+		for y in range(height):
+			colour_idx = indexed_img[y, x]
+			bgr_colour = bgr_out_palette[colour_idx]
+			bgr_img[y, x] = bgr_colour
+
+	cv2.imwrite(path_out, bgr_img)

@@ -12,21 +12,6 @@ import palette
 from log import Log
 import instructions
 
-def output_preview_image(path_out, indexed_img, bgr_palette):
-	height, width = indexed_img.shape
-	palette_size, depth = bgr_palette.shape
-
-	bgr_out_palette = (bgr_palette * 255).astype(np.uint8)
-
-	bgr_img = np.zeros((height, width, depth), dtype=np.uint8)
-	for x in range(width):
-		for y in range(height):
-			colour_idx = indexed_img[y, x]
-			bgr_colour = bgr_out_palette[colour_idx]
-			bgr_img[y, x] = bgr_colour
-
-	cv2.imwrite(path_out, bgr_img)
-
 def get_rng_seed():
 	np.random.seed()
 	return np.random.randint(2 ** 32 - 1)
@@ -81,7 +66,7 @@ def analyse_img(path, weight_map_path, img_out, instr_out, *,
 	# Generate BGR image using colour map and the BGR version of the approximated colour space
 	# Export approximated image
 	log.info("Exporting image...")
-	output_preview_image(img_out, indexed_img, bgr_approx)
+	palette.output_preview_image(img_out, indexed_img, bgr_approx)
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description=
