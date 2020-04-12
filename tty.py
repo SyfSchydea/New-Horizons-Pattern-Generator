@@ -66,7 +66,9 @@ class TTY:
 	def __init__(self, file=sys.stdout, fmt=TextFormat(), *, use_colour=Trit.maybe):
 		self.file = file
 		self.fmt = copy(fmt)
-		self.use_colour = Trit.of(use_colour).maybe_true()
+
+		use_colour = Trit.of(use_colour)
+		self.use_colour = bool(use_colour) if use_colour.known else file.isatty()
 
 		# This property keeps track of formatting which it should be using,
 		# However, it may not always be using this formatting if no non-
@@ -206,7 +208,6 @@ if __name__ == "__main__":
 	# Main method to test output
 	# Should probably remove this stuff before merging to master
 	
-	f = TTY(use_colour=False)
+	f = TTY()
 	f.write(FormattedString("blue text\n", TextFormat(fg=BLUE, bold=True)))
-	f.use_colour = True
 	f.write(FormattedString("red text\n",  TextFormat(fg=RED,  bold=True)))
