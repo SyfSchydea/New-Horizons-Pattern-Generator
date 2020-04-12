@@ -36,7 +36,7 @@ COLOUR_VALUES_FMT = tty.TextFormat(fg=tty.RED)
 # param palette      - Array of New Horizons colours.
 def _write_palette_channel(file, channel_idx, channel_name, header_width, palette):
 	file.write(tty.FormattedString(channel_name.rjust(header_width) + ": ", HEADER_FMT))
-	file.write(tty.FormattedString("  ".join(str(colour[channel_idx]).rjust(2) for colour in palette)))
+	file.write(tty.FormattedString("  ".join(str(col[channel_idx]).rjust(2) for col in palette)))
 	file.write("\n")
 
 # Write an ascii version of an indexed image to the file.
