@@ -22,6 +22,17 @@ CYAN         = BLUE | GREEN
 WHITE        = RED  | GREEN | BLUE
 RESET_COLOUR = 9
 
+COLOUR_NAMES = {
+	BLACK:   "black",
+	RED:     "red",
+	GREEN:   "green",
+	BLUE:    "blue",
+	YELLOW:  "yellow",
+	MAGENTA: "magenta",
+	CYAN:    "cyan",
+	WHITE:   "white",
+}
+
 # Normal terminal settings
 FG_DEFAULT = WHITE
 
@@ -39,19 +50,42 @@ def sanitise_fg(colour):
 class TextFormat:
 	def __init__(self, *, fg=FG_DEFAULT, bold=Trit.false, faint=Trit.false):
 		self.fg = fg
+
+		# whether or not the FG is set to the specified value.
+		# If false, the FG is actually on the default value.
+		self.fg_set = Trit.true
+
 		self.bold  = Trit.of(bold)
 		self.faint = Trit.of(faint)
 
+	# Fetch the foreground colour
+	#
+	# return - Tuple of (fg_set, fg_colour)
+	def get_fg(self):
+		# fg_set being false, and fg being FG_DEFAULT are equivalent
+		if self.fg == FG_DEFAULT or self.fg_set.definitely_false():
+			self.fg = FG_DEFAULT
+			self.fg_set = Trit.true
+
+		return self.fg_set, self.fg
+
 	def fg_matches(self, other_fg):
-		return self.fg == sanitise_fg(other_fg)
+		fg_set, fg = self.get_fg()
+
+		if not self.fg_set.known:
+			return False
+
+		return bool(fg_set) and self.fg == sanitise_fg(other_fg)
 
 	def set_fg(self, fg):
 		self.fg = sanitise_fg(fg)
-	
+		self.fg_set = Trit.true
+
 	# Ambiguously reset formatting to default.
 	def maybe_reset(self):
 		self.bold = self.bold.maybe_set(False)
 		self.faint = self.faint.maybe_set(False)
+		self.fg_set = self.fg_set.maybe_set(False)
 	
 	# Return true if and only if `other` is an identical TextFormat
 	def __eq__(self, other):
@@ -61,6 +95,39 @@ class TextFormat:
 		return (self.fg_matches(other.fg)
 			and self.bold.definitely_equals(other.bold)
 			and self.faint.definitely_equals(other.faint))
+
+	def __str__(self):
+		words = []
+
+		if self.bold.maybe_true():
+			bold = "bold"
+
+			if not self.bold.known:
+				bold = "maybe " + bold
+
+			words.append(bold)
+
+		if self.faint.maybe_true():
+			faint = "faint"
+
+			if not self.faint.known:
+				faint = "maybe " + faint
+
+			words.append(faint)
+
+		fg_set, fg = self.get_fg()
+		if fg_set.maybe_true() and fg != FG_DEFAULT:
+			col = COLOUR_NAMES[fg]
+
+			if not fg_set.known:
+				col += " or default"
+
+			words.append(col)
+
+		if len(words) <= 0:
+			words.append("normal")
+
+		return ", ".join(words)
 
 # Class for setting tty colour/formatting
 class TTY:
@@ -185,6 +252,7 @@ class TTY:
 			self.pending_fmt = string.fmt
 			string = string.string
 
+
 		lines = string.split("\n")
 
 		for i, line in enumerate(lines):
@@ -210,8 +278,11 @@ if __name__ == "__main__":
 	# Main method to test output
 	# Should probably remove this stuff before merging to master
 	
-	f = TTY()
+	f = TTY(use_colour=True)
+	f.write(FormattedString("blue text\n", TextFormat(fg=BLUE, bold=True)))
 	f.write(FormattedString("faint text\n",  TextFormat(faint=True)))
 	f.write(FormattedString("normal text\n", TextFormat()))
-	f.write(FormattedString("blue text\n", TextFormat(fg=BLUE, bold=True)))
 	f.write(FormattedString("red text\n",  TextFormat(fg=RED,  bold=True)))
+	f.write(FormattedString("red text", TextFormat(fg=RED)))
+	f.write(FormattedString(" and", TextFormat(fg=RED)))
+	f.write(FormattedString(" more red text", TextFormat(fg=RED)))

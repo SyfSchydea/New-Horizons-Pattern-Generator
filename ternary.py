@@ -1,3 +1,5 @@
+#!/bin/python3
+
 # Implementation of ternary logic
 
 # Ternary logic unit
@@ -24,7 +26,7 @@ class Trit(object):
 			if known:
 				return super(Trit, self).__getattribute__("value")
 			else:
-				raise Value("Value is not known")
+				raise ValueError("Value is not known")
 
 		return super(Trit, self).__getattribute__(name)
 
