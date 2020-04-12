@@ -136,3 +136,9 @@ want to see some more debug information, you can pass the `-v`/`--verbose` flag.
 want to see less information you can pass the `-q`/`--quiet` flag. This flag also stacks
 to hide even more output. Stacking the flag twice (`-qq`) hides info and warnings.
 Stacking the flag three times (`-qqq`) hides info, warnings, and errors.
+
+## TTY Colours
+
+The instructions file may be written with TTY colour control codes. This defaults to
+on if the instructions file is being written directly to a console, but may also be
+forced on with `-c`/`--tty-colours` or forced off with `--no-tty-colours`.
