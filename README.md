@@ -137,7 +137,7 @@ want to see less information you can pass the `-q`/`--quiet` flag. This flag als
 to hide even more output. Stacking the flag twice (`-qq`) hides info and warnings.
 Stacking the flag three times (`-qqq`) hides info, warnings, and errors.
 
-## TTY COlours
+## TTY Colours
 
 The instructions file may be written with TTY colour control codes. This default to
 on if the instructions file is being written directly to a console, but may also be
