@@ -6,6 +6,7 @@ import argparse
 import numpy as np
 import cv2
 
+from ternary import Trit
 import tty
 
 # Number of values per dimension in NH's colour space
@@ -396,7 +397,7 @@ def _write_indexed_img(file, indexed_img, display_chars):
 # param path_out    - Path to file to write to.
 # param indexed_img - Array of colour indices for each pixel of the image.
 # param palette     - Array of New Horizons colours
-def write_instructions(path_out, indexed_img, palette, *, pattern_name="your pattern"):
+def write_instructions(path_out, indexed_img, palette, *, pattern_name="your pattern", use_colour=Trit.maybe):
 	empty_pixel  = EMPTY_CHAR
 	active_pixel = ACTIVE_CHAR
 
@@ -404,7 +405,7 @@ def write_instructions(path_out, indexed_img, palette, *, pattern_name="your pat
 	palette_size, _ =     palette.shape
 
 	with open(path_out, "w") as file_raw:
-		file = tty.TTY(file_raw)
+		file = tty.TTY(file_raw, use_colour=use_colour)
 		file.write(tty.FormattedString(f"How to draw {pattern_name}:\n\n", HEADER_FMT))
 
 		file.write(tty.FormattedString("Colour palette:\n", HEADER_FMT))
@@ -523,7 +524,7 @@ def pick_palette(img, palette_size, seed, weight_map, *, retry_on_dupe=False, lo
 		log.info("Palette has duplicate colours. Retrying with seed:", seed)
 
 def analyse_img(path, weight_map_path, img_out, instr_out, *,
-		seed=None, retry_on_dupe=False, use_dithering=True,
+		seed=None, retry_on_dupe=False, use_dithering=True, use_colour=Trit.maybe,
 		verbosity=Log.INFO):
 	# NH allows 15 colours + transparent
 	PALETTE_SIZE = 15
@@ -565,7 +566,7 @@ def analyse_img(path, weight_map_path, img_out, instr_out, *,
 		indexed_img = create_indexed_img_threshold(img_lab, lab_palette)
 
 	# Print drawing instructions
-	write_instructions(instr_out, indexed_img, nh_palette)
+	write_instructions(instr_out, indexed_img, nh_palette, use_colour=use_colour)
 
 	# Generate BGR image using colour map and the BGR version of the approximated colour space
 	# Export approximated image
@@ -594,7 +595,13 @@ if __name__ == "__main__":
 	parser.add_argument("-s", "--seed", type=int, default=None,
 		help="RNG seed for K-Means initialisation")
 
-	verbosity_group = parser.add_mutually_exclusive_group();
+	tty_colour_group = parser.add_mutually_exclusive_group()
+	tty_colour_group.add_argument("-c", "--tty-colours", action="store_true",
+		help="Always use tty colours when printing the instructions file")
+	tty_colour_group.add_argument("--no-tty-colours", action="store_true",
+		help="Never use tty colours when printing the instructions file")
+
+	verbosity_group = parser.add_mutually_exclusive_group()
 	verbosity_group.add_argument("-q", "--quiet", action="count",
 		help="Print less information to stdout. May be stacked "
 			+ "up to three times to hide warnings and errors")
@@ -604,6 +611,12 @@ if __name__ == "__main__":
 	args = parser.parse_args()
 
 	input_file = getattr(args, "input-file")
+
+	use_colour = Trit.maybe
+	if args.tty_colours:
+		use_colour = Trit.true
+	elif args.no_tty_colours:
+		use_colour = Trit.false
 
 	verbosity = Log.INFO
 	if args.quiet is not None:
@@ -615,7 +628,7 @@ if __name__ == "__main__":
 		analyse_img(input_file, weight_map_path=args.weight_map,
 			img_out=args.out, instr_out=args.instructions_out,
 			seed=args.seed, retry_on_dupe=args.retry_duplicate,
-			use_dithering=args.dithering,
+			use_dithering=args.dithering, use_colour=use_colour,
 			verbosity=verbosity);
 	except FileNotFoundError:
 		sys.stderr.write("File does not exist or is not a valid image\n")
