@@ -139,6 +139,6 @@ Stacking the flag three times (`-qqq`) hides info, warnings, and errors.
 
 ## TTY Colours
 
-The instructions file may be written with TTY colour control codes. This default to
+The instructions file may be written with TTY colour control codes. This defaults to
 on if the instructions file is being written directly to a console, but may also be
 forced on with `-c`/`--tty-colours` or forced off with `--no-tty-colours`.
