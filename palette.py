@@ -206,6 +206,29 @@ NEW_LEAF_GLOBAL_RGB = [
 	(0xef, 0x000000),
 ]
 
+# Convert and return the New Leaf global palette in the Lab colour space.
+#
+# return - Tuple of:
+#          - array of colour ids
+#          - array of colours in Lab
+def get_nl_lab():
+	n = len(NEW_LEAF_GLOBAL_RGB)
+
+	colour_ids = np.zeros(n, dtype=np.uint8)
+	colours_rgb = np.zeros((n, 3), dtype=np.float32)
+
+	for i in range(n):
+		id, colour_hex = NEW_LEAF_GLOBAL_RGB[i]
+		colour_ids[i] = id
+
+		colours_rgb[i, 0] = (colour_hex & 0xff0000) >> 16
+		colours_rgb[i, 1] = (colour_hex & 0x00ff00) >>  8
+		colours_rgb[i, 2] =  colour_hex & 0x0000ff
+
+	colours_lab = colour.convert_palette(colours_rgb / 255, cv2.COLOR_RGB2Lab)
+
+	return colour_ids, colours_lab
+
 # Find which center a given data point is closest to.
 #
 # @param item    - m-length array data point.
