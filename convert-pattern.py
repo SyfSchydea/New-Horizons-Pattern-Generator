@@ -17,11 +17,10 @@ def get_rng_seed():
 	return np.random.randint(2 ** 32 - 1)
 
 # Pseudo main-method
-# Load image, convert to NH pattern, output preview and instructions
+# Load image, convert to pattern, output preview and instructions
 def analyse_img(path, weight_map_path, img_out, instr_out, *,
-		seed=None, retry_on_dupe=False, use_dithering=True, use_colour=Trit.maybe,
-		verbosity=Log.INFO):
-	# NH allows 15 colours + transparent
+		seed=None, retry_on_dupe=False, use_dithering=True, use_colour=Trit.maybe, verbosity=Log.INFO, new_leaf=False):
+	# NH/NL allow 15 colours + transparent
 	PALETTE_SIZE = 15
 
 	log = Log(verbosity)
@@ -43,11 +42,18 @@ def analyse_img(path, weight_map_path, img_out, instr_out, *,
 	if weight_map_path is not None:
 		weight_map = cv2.imread(weight_map_path, 0).astype(np.float32)
 
-	nh_palette, lab_palette = palette.pick_palette(img_lab, PALETTE_SIZE, seed, weight_map,
-		retry_on_dupe=retry_on_dupe, log=log)
+	if new_leaf:
+		game_palette, lab_palette = palette.pick_nl_palette(img_lab, PALETTE_SIZE, seed, weight_map,
+			retry_on_dupe=retry_on_dupe, log=log)
+		log.debug(lab_palette)
+		log.error("New Leaf process not yet implemented beyond this point")
+		sys.exit(0)
+	else:
+		game_palette, lab_palette = palette.pick_palette(img_lab, PALETTE_SIZE, seed, weight_map,
+			retry_on_dupe=retry_on_dupe, log=log)
 
 	# Convert the NH colours to BGR(1) to Lab
-	hsv_approximated = colour.palette_nh_to_hsv(nh_palette)
+	hsv_approximated = colour.palette_nh_to_hsv(game_palette)
 	log.debug("NH-HSV Palette:\n", hsv_approximated)
 	bgr_approx = colour.convert_palette(hsv_approximated, cv2.COLOR_HSV2BGR)
 	log.debug("NH-BGR Palette:\n", bgr_approx)
@@ -61,7 +67,7 @@ def analyse_img(path, weight_map_path, img_out, instr_out, *,
 		indexed_img = palette.create_indexed_img_threshold(img_lab, lab_palette)
 
 	# Print drawing instructions
-	instructions.write(instr_out, indexed_img, nh_palette, use_colour=use_colour)
+	instructions.write(instr_out, indexed_img, game_palette, use_colour=use_colour)
 
 	# Generate BGR image using colour map and the BGR version of the approximated colour space
 	# Export approximated image
@@ -75,7 +81,7 @@ if __name__ == "__main__":
 	parser.add_argument("input-file", help="Path to input image")
 	parser.add_argument("-o", "--out", default="nh-pattern.png",
 		help="Path to save output preview image")
-	parser.add_argument("-i", "--instructions-out", default="nh-pattern-instructions.txt",
+	parser.add_argument("-i", "--instructions-out", default=None,
 		help="Path to save pattern instructions")
 
 	parser.add_argument("-d", "--dithering", action="store_true",
@@ -83,6 +89,10 @@ if __name__ == "__main__":
 
 	parser.add_argument("-w", "--weight-map",
 		help="Map of pixel weights for palette selection")
+
+	parser.add_argument("-L", "--new-leaf", action="store_true",
+		help="Generate a pattern using the New Leaf colour palette instead of the New Horizons"
+			+ "palette. This option also allows a QR code to be generated for the pattern")
 
 	parser.add_argument("-r", "--retry-duplicate", action="store_true",
 		help="Retry palette generation until there are no duplicate colours")
@@ -107,12 +117,24 @@ if __name__ == "__main__":
 
 	input_file = getattr(args, "input-file")
 
+	# Validate --instructions-out <path>
+	if args.instructions_out == "":
+		sys.stderr.write("Instructions file output path cannot be empty\n")
+		sys.exit(1)
+	if args.instructions_out and args.new_leaf:
+		sys.stderr.write("Cannot produce an instructions file for a New Leaf texture. Import using the QR code instead\n");
+		sys.exit(1)
+
+	instructions_file = args.instructions_out or instructions.DEFAULT_PATH
+
+	# Fetch tty colour options
 	use_colour = Trit.maybe
 	if args.tty_colours:
 		use_colour = Trit.true
 	elif args.no_tty_colours:
 		use_colour = Trit.false
 
+	# Fetch verbosity options
 	verbosity = Log.INFO
 	if args.quiet is not None:
 		verbosity -= args.quiet
@@ -120,11 +142,9 @@ if __name__ == "__main__":
 		verbosity += 1
 
 	try:
-		analyse_img(input_file, weight_map_path=args.weight_map,
-			img_out=args.out, instr_out=args.instructions_out,
-			seed=args.seed, retry_on_dupe=args.retry_duplicate,
-			use_dithering=args.dithering, use_colour=use_colour,
-			verbosity=verbosity);
+		analyse_img(input_file, weight_map_path=args.weight_map, img_out=args.out, instr_out=args.instructions_out,
+			seed=args.seed, retry_on_dupe=args.retry_duplicate, use_dithering=args.dithering, use_colour=use_colour,
+			new_leaf=args.new_leaf, verbosity=verbosity);
 	except FileNotFoundError:
 		sys.stderr.write("File does not exist or is not a valid image\n")
 		sys.exit(1)
