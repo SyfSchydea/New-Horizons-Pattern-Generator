@@ -273,6 +273,56 @@ def pick_palette(img, palette_size, seed, weight_map, *, retry_on_dupe=False, lo
 		seed += 1
 		log.info("Palette has duplicate colours. Retrying with seed:", seed)
 
+# Take an image in Lab colour space, and output a colour palette in New Leaf colours
+#
+# param img           - Input Lab image.
+# param palette_size  - Number of colours to use in the palette.
+# param seed          - Starting RNG seed.
+# param retry_on_dupe - If truthy, when a palette containing a duplicate colour is generated, the RNG seed will
+#                       be incremented, and the process will repeat until a unique palette is returned.
+# param log           - Log to use to output info.
+#
+# return              - Tuple of (NL Palette as array, Lab palette as array)
+def pick_nl_palette(img, palette_size, seed, weight_map, *, retry_on_dupe=False, log=Log(Log.ERROR)):
+	# Generate colour palette using K-Means
+	log.info("Finding suitable New Leaf colour palette...")
+	height, width, depth = img.shape
+	colours = img.reshape((height * width, depth))
+
+	nl_global_ids, nl_global_colours = get_nl_lab()
+
+	if weight_map is not None:
+		weight_map = weight_map.reshape(height * width)
+	else:
+		weight_map = np.ones(height * width)
+
+	while True:
+		colour_palette = k_means(colours, palette_size, weight_map, seed=seed)
+		log.debug("Lab Palette:", colour_palette)
+
+		# Round to ACNH's colour space
+		log.info("Converting to New Leaf colours...")
+		nl_palette = np.zeros(palette_size, dtype=np.uint8)
+		for i in range(palette_size):
+			# Find closest NL colour
+			idx = find_closest(colour_palette[i], nl_global_colours)
+			nl_palette[i] = nl_global_ids[idx]
+
+		log.debug("NL Palette:", ", ".join(np.vectorize(hex)(nl_palette)))
+
+		# Check if any colours are identical after rounding
+		duplicate_colours = colour.get_duplicate_colours(nl_palette)
+		if len(duplicate_colours) <= 0:
+			return nl_palette, colour_palette
+
+		if not retry_on_dupe:
+			log.warn("Repeated colours in palette:", *duplicate_colours)
+			return nl_palette, colour_palette
+
+		seed += 1
+		log.info("Palette has duplicate colours. Retrying with seed:", seed)
+		log.debug("Duplicate colours were:", ", ".join([hex(x[0]) for x in duplicate_colours]))
+
 # Write a preview of the pattern to a file.
 # Expects the palette to already be converted to BGR from 0 to 1.
 def output_preview_image(path_out, indexed_img, bgr_palette):
