@@ -47,16 +47,18 @@ def analyse_img(path, weight_map_path, img_out, instr_out, *,
 
 	game_palette, lab_palette = palette.pick_palette(img_lab, PALETTE_SIZE, seed, weight_map,
 		retry_on_dupe=retry_on_dupe, new_leaf=new_leaf, log=log)
-	log.debug(lab_palette)
+
+	# Convert the NH colours to BGR in the range 0 to 1
 	if new_leaf:
+		bgr_approx = palette.nl_to_bgr(game_palette)
+		log.debug("NL-BGR Palette:\n", bgr_approx)
 		log.error("New Leaf process not yet implemented beyond this point")
 		sys.exit(0)
-
-	# Convert the NH colours to BGR(1) to Lab
-	hsv_approximated = colour.palette_nh_to_hsv(game_palette)
-	log.debug("NH-HSV Palette:\n", hsv_approximated)
-	bgr_approx = colour.convert_palette(hsv_approximated, cv2.COLOR_HSV2BGR)
-	log.debug("NH-BGR Palette:\n", bgr_approx)
+	else:
+		hsv_approximated = colour.palette_nh_to_hsv(game_palette)
+		log.debug("NH-HSV Palette:\n", hsv_approximated)
+		bgr_approx = colour.convert_palette(hsv_approximated, cv2.COLOR_HSV2BGR)
+		log.debug("NH-BGR Palette:\n", bgr_approx)
 
 	# Create indexed image using clusters
 	log.info("Creating indexed image...")
@@ -142,7 +144,7 @@ if __name__ == "__main__":
 		verbosity += 1
 
 	try:
-		analyse_img(input_file, weight_map_path=args.weight_map, img_out=args.out, instr_out=args.instructions_out,
+		analyse_img(input_file, weight_map_path=args.weight_map, img_out=args.out, instr_out=instructions_file,
 			seed=args.seed, retry_on_dupe=args.retry_duplicate, use_dithering=args.dithering, use_colour=use_colour,
 			new_leaf=args.new_leaf, verbosity=verbosity);
 	except FileNotFoundError:
