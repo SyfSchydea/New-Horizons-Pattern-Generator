@@ -32,6 +32,20 @@ def get_nl_lab():
 
 	return colour_ids, colours_lab
 
+# Convert a palette of Lab colours to New Leaf palette IDs
+def palette_to_nl(lab_palette):
+	palette_size, _ = lab_palette.shape
+
+	nl_global_ids, nl_global_colours = get_nl_lab()
+
+	nl_palette = np.zeros(palette_size, dtype=np.uint8)
+	for i in range(palette_size):
+		# Find closest NL colour
+		idx = find_closest(lab_palette[i], nl_global_colours)
+		nl_palette[i] = nl_global_ids[idx]
+	
+	return nl_palette
+
 # Find which center a given data point is closest to.
 #
 # @param item    - m-length array data point.
@@ -230,13 +244,13 @@ def create_indexed_img_dithered(img, palette):
 # param img           - Input Lab image.
 # param palette_size  - Number of colours to use in the palette.
 # param seed          - Starting RNG seed.
-# param retry_on_dupe - If truthy, when a palette containing a duplicate colour
-#                       is generated, the RNG seed will be incremented, and the
-#                       process will repeat until a unique palette is returned.
+# param retry_on_dupe - If truthy, when a palette containing a duplicate colour is generated, the RNG seed will
+#                       be incremented, and the process will repeat until a unique palette is returned.
+# new_leaf              If truthy, a New Leaf style palette will be generated instead of a New Horizons one.
 # param log           - Log to use to output info.
 #
 # return              - Tuple of (NH Palette as array, Lab palette as array)
-def pick_palette(img, palette_size, seed, weight_map, *, retry_on_dupe=False, log=Log(Log.ERROR)):
+def pick_palette(img, palette_size, seed, weight_map=None, *, retry_on_dupe=False, new_leaf=False, log=Log(Log.ERROR)):
 	# Generate colour palette using K-Means
 	log.info("Finding suitable colour palette...")
 	height, width, depth = img.shape
@@ -256,72 +270,31 @@ def pick_palette(img, palette_size, seed, weight_map, *, retry_on_dupe=False, lo
 		hsv_palette = colour.convert_palette(colour_palette, cv2.COLOR_Lab2RGB, cv2.COLOR_RGB2HSV)
 		log.debug("HSV Palette:\n", hsv_palette)
 
-		# Round to ACNH's colour space
-		log.info("Converting to NH colours...")
-		nh_palette = colour.palette_hsv_to_nh(hsv_palette)
-		log.debug("NH Palette:\n", nh_palette)
+		if new_leaf:
+			# Round to ACNL's palette.
+			log.info("Converting to New Leaf colours...")
+			game_palette = palette_to_nl(colour_palette)
+			log.debug("NL Palette:", ", ".join(np.vectorize(hex)(game_palette)))
+		else:
+			# Round to ACNH's colour space 
+			log.info("Converting to NH colours...")
+			game_palette = colour.palette_hsv_to_nh(hsv_palette)
+			log.debug("NH Palette:\n", game_palette)
 
 		# Check if any colours are identical after rounding
-		duplicate_colours = colour.get_duplicate_colours(nh_palette)
+		duplicate_colours = colour.get_duplicate_colours(game_palette)
 		if len(duplicate_colours) <= 0:
-			return nh_palette, colour_palette
+			return game_palette, colour_palette
 
 		if not retry_on_dupe:
-			log.warn("Repeated colours in palette:", *duplicate_colours)
-			return nh_palette, colour_palette
+			if new_leaf:
+				log.warn("Repeated colours in palette:", *[hex(c[0]) for c in duplicate_colours])
+			else:
+				log.warn("Repeated colours in palette:", *duplicate_colours)
+			return game_palette, colour_palette
 
 		seed += 1
 		log.info("Palette has duplicate colours. Retrying with seed:", seed)
-
-# Take an image in Lab colour space, and output a colour palette in New Leaf colours
-#
-# param img           - Input Lab image.
-# param palette_size  - Number of colours to use in the palette.
-# param seed          - Starting RNG seed.
-# param retry_on_dupe - If truthy, when a palette containing a duplicate colour is generated, the RNG seed will
-#                       be incremented, and the process will repeat until a unique palette is returned.
-# param log           - Log to use to output info.
-#
-# return              - Tuple of (NL Palette as array, Lab palette as array)
-def pick_nl_palette(img, palette_size, seed, weight_map, *, retry_on_dupe=False, log=Log(Log.ERROR)):
-	# Generate colour palette using K-Means
-	log.info("Finding suitable New Leaf colour palette...")
-	height, width, depth = img.shape
-	colours = img.reshape((height * width, depth))
-
-	nl_global_ids, nl_global_colours = get_nl_lab()
-
-	if weight_map is not None:
-		weight_map = weight_map.reshape(height * width)
-	else:
-		weight_map = np.ones(height * width)
-
-	while True:
-		colour_palette = k_means(colours, palette_size, weight_map, seed=seed)
-		log.debug("Lab Palette:", colour_palette)
-
-		# Round to ACNH's colour space
-		log.info("Converting to New Leaf colours...")
-		nl_palette = np.zeros(palette_size, dtype=np.uint8)
-		for i in range(palette_size):
-			# Find closest NL colour
-			idx = find_closest(colour_palette[i], nl_global_colours)
-			nl_palette[i] = nl_global_ids[idx]
-
-		log.debug("NL Palette:", ", ".join(np.vectorize(hex)(nl_palette)))
-
-		# Check if any colours are identical after rounding
-		duplicate_colours = colour.get_duplicate_colours(nl_palette)
-		if len(duplicate_colours) <= 0:
-			return nl_palette, colour_palette
-
-		if not retry_on_dupe:
-			log.warn("Repeated colours in palette:", *duplicate_colours)
-			return nl_palette, colour_palette
-
-		seed += 1
-		log.info("Palette has duplicate colours. Retrying with seed:", seed)
-		log.debug("Duplicate colours were:", ", ".join([hex(x[0]) for x in duplicate_colours]))
 
 # Write a preview of the pattern to a file.
 # Expects the palette to already be converted to BGR from 0 to 1.

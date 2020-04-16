@@ -28,6 +28,9 @@ def analyse_img(path, weight_map_path, img_out, instr_out, *,
 	if seed is None:
 		seed = get_rng_seed()
 		log.info("Using seed:", seed)
+	
+	if new_leaf:
+		log.info("Generating a New Leaf pattern")
 
 	# Input image as BGR(255)
 	log.info("Opening image...")
@@ -42,15 +45,12 @@ def analyse_img(path, weight_map_path, img_out, instr_out, *,
 	if weight_map_path is not None:
 		weight_map = cv2.imread(weight_map_path, 0).astype(np.float32)
 
+	game_palette, lab_palette = palette.pick_palette(img_lab, PALETTE_SIZE, seed, weight_map,
+		retry_on_dupe=retry_on_dupe, new_leaf=new_leaf, log=log)
+	log.debug(lab_palette)
 	if new_leaf:
-		game_palette, lab_palette = palette.pick_nl_palette(img_lab, PALETTE_SIZE, seed, weight_map,
-			retry_on_dupe=retry_on_dupe, log=log)
-		log.debug(lab_palette)
 		log.error("New Leaf process not yet implemented beyond this point")
 		sys.exit(0)
-	else:
-		game_palette, lab_palette = palette.pick_palette(img_lab, PALETTE_SIZE, seed, weight_map,
-			retry_on_dupe=retry_on_dupe, log=log)
 
 	# Convert the NH colours to BGR(1) to Lab
 	hsv_approximated = colour.palette_nh_to_hsv(game_palette)
