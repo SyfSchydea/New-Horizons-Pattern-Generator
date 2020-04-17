@@ -68,24 +68,23 @@ def analyse_img(path, weight_map_path, img_out, instr_out, *,
 
 	log.debug("Indexed img:\n", indexed_img)
 
-	if new_leaf:
-		log.error("New Leaf process not yet implemented beyond this point")
-		sys.exit(0)
-
 	# Print drawing instructions
-	instructions.write(instr_out, indexed_img, game_palette, use_colour=use_colour)
+	if not new_leaf:
+		log.info("Writing instructions file...")
+		instructions.write(instr_out, indexed_img, game_palette, use_colour=use_colour)
 
 	# Generate BGR image using colour map and the BGR version of the approximated colour space
 	# Export approximated image
 	log.info("Exporting image...")
 	palette.output_preview_image(img_out, indexed_img, bgr_approx)
 
+
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description=
 		"Convert an image to a New Horizons custom pattern")
 
 	parser.add_argument("input-file", help="Path to input image")
-	parser.add_argument("-o", "--out", default="nh-pattern.png",
+	parser.add_argument("-o", "--out", default=None,
 		help="Path to save output preview image")
 	parser.add_argument("-i", "--instructions-out", default=None,
 		help="Path to save pattern instructions")
@@ -123,6 +122,14 @@ if __name__ == "__main__":
 
 	input_file = getattr(args, "input-file")
 
+	# Fetch preview image filename
+	if args.out is not None:
+		preview_file = args.out
+	elif args.new_leaf:
+		preview_file = palette.DEFAULT_PREVIEW_FILENAME_NL
+	else:
+		preview_file = palette.DEFAULT_PREVIEW_FILENAME_NH
+
 	# Validate --instructions-out <path>
 	if args.instructions_out == "":
 		sys.stderr.write("Instructions file output path cannot be empty\n")
@@ -148,7 +155,7 @@ if __name__ == "__main__":
 		verbosity += 1
 
 	try:
-		analyse_img(input_file, weight_map_path=args.weight_map, img_out=args.out, instr_out=instructions_file,
+		analyse_img(input_file, weight_map_path=args.weight_map, img_out=preview_file, instr_out=instructions_file,
 			seed=args.seed, retry_on_dupe=args.retry_duplicate, use_dithering=args.dithering, use_colour=use_colour,
 			new_leaf=args.new_leaf, verbosity=verbosity);
 	except FileNotFoundError:

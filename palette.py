@@ -8,6 +8,10 @@ import cv2
 import colour
 from log import Log
 
+# File names used to output preview images
+DEFAULT_PREVIEW_FILENAME_NH = "nh-pattern.png"
+DEFAULT_PREVIEW_FILENAME_NL = "nl-pattern.png"
+
 _new_leaf_rgb = None
 _new_leaf_lab = None
 
