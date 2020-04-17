@@ -52,8 +52,6 @@ def analyse_img(path, weight_map_path, img_out, instr_out, *,
 	if new_leaf:
 		bgr_approx = palette.nl_to_bgr(game_palette)
 		log.debug("NL-BGR Palette:\n", bgr_approx)
-		log.error("New Leaf process not yet implemented beyond this point")
-		sys.exit(0)
 	else:
 		hsv_approximated = colour.palette_nh_to_hsv(game_palette)
 		log.debug("NH-HSV Palette:\n", hsv_approximated)
@@ -67,6 +65,12 @@ def analyse_img(path, weight_map_path, img_out, instr_out, *,
 		indexed_img = palette.create_indexed_img_dithered(img_lab, lab_approx)
 	else:
 		indexed_img = palette.create_indexed_img_threshold(img_lab, lab_palette)
+
+	log.debug("Indexed img:\n", indexed_img)
+
+	if new_leaf:
+		log.error("New Leaf process not yet implemented beyond this point")
+		sys.exit(0)
 
 	# Print drawing instructions
 	instructions.write(instr_out, indexed_img, game_palette, use_colour=use_colour)
