@@ -31,11 +31,8 @@ class Log:
 		if self.verbosity >= Log.INFO:
 			print(*msg, file=self.file)
 
-	# Returns True if this log will output debug information.
-	def outputs_debug(self):
-		return self.verbosity >= Log.DEBUG
-
-	# Log information which may be useful for debugging, but the end-user typically doesn't need to see.
+	# Log information which may be useful for debugging,
+	# but the end-user typically doesn't need to see.
 	def debug(self, *msg):
-		if self.outputs_debug():
+		if self.verbosity >= Log.DEBUG:
 			print(*msg, file=self.file)
