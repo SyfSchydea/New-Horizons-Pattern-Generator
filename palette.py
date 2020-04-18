@@ -8,6 +8,93 @@ import cv2
 import colour
 from log import Log
 
+# File names used to output preview images
+DEFAULT_PREVIEW_FILENAME_NH = "nh-pattern.png"
+DEFAULT_PREVIEW_FILENAME_NL = "nl-pattern.png"
+
+_new_leaf_rgb = None
+_new_leaf_lab = None
+
+# Convert and return the New Leaf global palette in RGB in the range 0 to 255
+#
+# return - Tuple of:
+#          - array of colour ids
+#          - array of colours in RGB
+def get_nl_rgb():
+	global _new_leaf_rgb
+
+	if _new_leaf_rgb is not None:
+		return _new_leaf_rgb
+
+	from newleafpalette import NEW_LEAF_GLOBAL_RGB
+
+	n = len(NEW_LEAF_GLOBAL_RGB)
+
+	colour_ids = np.zeros(n, dtype=np.uint8)
+	colours_rgb = np.zeros((n, 3), dtype=np.uint8)
+
+	for i in range(n):
+		id, colour_hex = NEW_LEAF_GLOBAL_RGB[i]
+		colour_ids[i] = id
+
+		colours_rgb[i, 0] = (colour_hex & 0xff0000) >> 16
+		colours_rgb[i, 1] = (colour_hex & 0x00ff00) >>  8
+		colours_rgb[i, 2] =  colour_hex & 0x0000ff
+
+	_new_leaf_rgb = (colour_ids, colours_rgb)
+	return colour_ids, colours_rgb
+
+# Convert and return the New Leaf global palette in the Lab colour space.
+#
+# return - Tuple of:
+#          - array of colour ids
+#          - array of colours in Lab
+def get_nl_lab():
+	global _new_leaf_lab
+
+	if _new_leaf_lab is not None:
+		return _new_leaf_lab
+
+	colour_ids, colours_rgb = get_nl_rgb()
+	colours_rgb = colours_rgb.astype(np.float32) / 255
+	colours_lab = colour.convert_palette(colours_rgb, cv2.COLOR_RGB2Lab)
+
+	_new_leaf_lab = (colour_ids, colours_lab)
+	return colour_ids, colours_lab
+
+# Convert a palette of Lab colours to New Leaf palette IDs
+def palette_to_nl(lab_palette):
+	palette_size, _ = lab_palette.shape
+
+	nl_global_ids, nl_global_colours = get_nl_lab()
+
+	nl_palette = np.zeros(palette_size, dtype=np.uint8)
+	for i in range(palette_size):
+		# Find closest NL colour
+		idx = find_closest(lab_palette[i], nl_global_colours)
+		nl_palette[i] = nl_global_ids[idx]
+	
+	return nl_palette
+
+# Takes a palette of New Leaf colour indices and returns the palette in BGR format in the range 0 to 1.
+def nl_to_bgr(nl_palette):
+	nl_global_ids, nl_global_rgb = get_nl_rgb()
+
+	palette_size, = nl_palette.shape
+	palette_bgr = np.zeros((palette_size, 3), np.float32)
+
+	for i in range(palette_size):
+		# Look up colour in list of New Leaf colours
+		matches = np.where(nl_global_ids == nl_palette[i])[0]
+		if len(matches) == 0:
+			raise ValueError(f"Could not find {hex(nl_palette[i])} in list of New Leaf colours")
+
+		idx = matches[0]
+		r, g, b = nl_global_rgb[idx]
+		palette_bgr[i] = (b, g, r)
+
+	return palette_bgr / 255
+
 # Find which center a given data point is closest to.
 #
 # @param item    - m-length array data point.
@@ -206,13 +293,13 @@ def create_indexed_img_dithered(img, palette):
 # param img           - Input Lab image.
 # param palette_size  - Number of colours to use in the palette.
 # param seed          - Starting RNG seed.
-# param retry_on_dupe - If truthy, when a palette containing a duplicate colour
-#                       is generated, the RNG seed will be incremented, and the
-#                       process will repeat until a unique palette is returned.
+# param retry_on_dupe - If truthy, when a palette containing a duplicate colour is generated, the RNG seed will
+#                       be incremented, and the process will repeat until a unique palette is returned.
+# new_leaf              If truthy, a New Leaf style palette will be generated instead of a New Horizons one.
 # param log           - Log to use to output info.
 #
 # return              - Tuple of (NH Palette as array, Lab palette as array)
-def pick_palette(img, palette_size, seed, weight_map, *, retry_on_dupe=False, log=Log(Log.ERROR)):
+def pick_palette(img, palette_size, seed, weight_map=None, *, retry_on_dupe=False, new_leaf=False, log=Log(Log.ERROR)):
 	# Generate colour palette using K-Means
 	log.info("Finding suitable colour palette...")
 	height, width, depth = img.shape
@@ -227,24 +314,33 @@ def pick_palette(img, palette_size, seed, weight_map, *, retry_on_dupe=False, lo
 		colour_palette = k_means(colours, palette_size, weight_map, seed=seed)
 		log.debug("Lab Palette:", colour_palette)
 
-		# Convert the palette into HSV
-		log.info("Converting palette to HSV...")
-		hsv_palette = colour.convert_palette(colour_palette, cv2.COLOR_Lab2RGB, cv2.COLOR_RGB2HSV)
-		log.debug("HSV Palette:\n", hsv_palette)
+		if new_leaf:
+			# Round to ACNL's palette.
+			log.info("Converting to New Leaf colours...")
+			game_palette = palette_to_nl(colour_palette)
+			log.debug("NL Palette:", ", ".join(np.vectorize(hex)(game_palette)))
+		else:
+			# Convert the palette into HSV
+			log.info("Converting palette to HSV...")
+			hsv_palette = colour.convert_palette(colour_palette, cv2.COLOR_Lab2RGB, cv2.COLOR_RGB2HSV)
+			log.debug("HSV Palette:\n", hsv_palette)
 
-		# Round to ACNH's colour space
-		log.info("Converting to NH colours...")
-		nh_palette = colour.palette_hsv_to_nh(hsv_palette)
-		log.debug("NH Palette:\n", nh_palette)
+			# Round to ACNH's colour space 
+			log.info("Converting to NH colours...")
+			game_palette = colour.palette_hsv_to_nh(hsv_palette)
+			log.debug("NH Palette:\n", game_palette)
 
 		# Check if any colours are identical after rounding
-		duplicate_colours = colour.get_duplicate_colours(nh_palette)
+		duplicate_colours = colour.get_duplicate_colours(game_palette)
 		if len(duplicate_colours) <= 0:
-			return nh_palette, colour_palette
+			return game_palette, colour_palette
 
 		if not retry_on_dupe:
-			log.warn("Repeated colours in palette:", *duplicate_colours)
-			return nh_palette, colour_palette
+			if new_leaf:
+				log.warn("Repeated colours in palette:", *[hex(c[0]) for c in duplicate_colours])
+			else:
+				log.warn("Repeated colours in palette:", *duplicate_colours)
+			return game_palette, colour_palette
 
 		seed += 1
 		log.info("Palette has duplicate colours. Retrying with seed:", seed)

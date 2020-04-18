@@ -11,17 +11,18 @@ import colour
 import palette
 from log import Log
 import instructions
+import qr
 
 def get_rng_seed():
 	np.random.seed()
 	return np.random.randint(2 ** 32 - 1)
 
 # Pseudo main-method
-# Load image, convert to NH pattern, output preview and instructions
-def analyse_img(path, weight_map_path, img_out, instr_out, *,
-		seed=None, retry_on_dupe=False, use_dithering=True, use_colour=Trit.maybe,
-		verbosity=Log.INFO):
-	# NH allows 15 colours + transparent
+# Load image, convert to pattern, output preview and instructions
+def analyse_img(path, weight_map_path, img_out, instr_out, qr_out, *,
+		seed=None, retry_on_dupe=False, use_dithering=True, use_colour=Trit.maybe, verbosity=Log.INFO, new_leaf=False,
+		qr_dump=False):
+	# NH/NL allow 15 colours + transparent
 	PALETTE_SIZE = 15
 
 	log = Log(verbosity)
@@ -29,6 +30,9 @@ def analyse_img(path, weight_map_path, img_out, instr_out, *,
 	if seed is None:
 		seed = get_rng_seed()
 		log.info("Using seed:", seed)
+	
+	if new_leaf:
+		log.info("Generating a New Leaf pattern")
 
 	# Input image as BGR(255)
 	log.info("Opening image...")
@@ -43,14 +47,18 @@ def analyse_img(path, weight_map_path, img_out, instr_out, *,
 	if weight_map_path is not None:
 		weight_map = cv2.imread(weight_map_path, 0).astype(np.float32)
 
-	nh_palette, lab_palette = palette.pick_palette(img_lab, PALETTE_SIZE, seed, weight_map,
-		retry_on_dupe=retry_on_dupe, log=log)
+	game_palette, lab_palette = palette.pick_palette(img_lab, PALETTE_SIZE, seed, weight_map,
+		retry_on_dupe=retry_on_dupe, new_leaf=new_leaf, log=log)
 
-	# Convert the NH colours to BGR(1) to Lab
-	hsv_approximated = colour.palette_nh_to_hsv(nh_palette)
-	log.debug("NH-HSV Palette:\n", hsv_approximated)
-	bgr_approx = colour.convert_palette(hsv_approximated, cv2.COLOR_HSV2BGR)
-	log.debug("NH-BGR Palette:\n", bgr_approx)
+	# Convert the NH colours to BGR in the range 0 to 1
+	if new_leaf:
+		bgr_approx = palette.nl_to_bgr(game_palette)
+		log.debug("NL-BGR Palette:\n", bgr_approx)
+	else:
+		hsv_approximated = colour.palette_nh_to_hsv(game_palette)
+		log.debug("NH-HSV Palette:\n", hsv_approximated)
+		bgr_approx = colour.convert_palette(hsv_approximated, cv2.COLOR_HSV2BGR)
+		log.debug("NH-BGR Palette:\n", bgr_approx)
 
 	# Create indexed image using clusters
 	log.info("Creating indexed image...")
@@ -60,29 +68,49 @@ def analyse_img(path, weight_map_path, img_out, instr_out, *,
 	else:
 		indexed_img = palette.create_indexed_img_threshold(img_lab, lab_palette)
 
+	log.debug("Indexed img:\n", indexed_img)
+
 	# Print drawing instructions
-	instructions.write(instr_out, indexed_img, nh_palette, use_colour=use_colour)
+	if new_leaf:
+		log.info("Generating QR code...")
+		qr_bytes, qr_code = qr.generate("Generated pattern", game_palette, indexed_img)
+		qr.export_img(qr_out, qr_code)
+
+		if qr_dump:
+			log.info(f"[DEBUG] Writing QR dump to {qr.DATA_DUMP_PATH}...")
+			with open(qr.DATA_DUMP_PATH, "wb") as f:
+				f.write(qr_bytes)
+	else:
+		log.info("Writing instructions file...")
+		instructions.write(instr_out, indexed_img, game_palette, use_colour=use_colour)
 
 	# Generate BGR image using colour map and the BGR version of the approximated colour space
 	# Export approximated image
-	log.info("Exporting image...")
+	log.info("Exporting preview image...")
 	palette.output_preview_image(img_out, indexed_img, bgr_approx)
+
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description=
 		"Convert an image to a New Horizons custom pattern")
 
 	parser.add_argument("input-file", help="Path to input image")
-	parser.add_argument("-o", "--out", default="nh-pattern.png",
+	parser.add_argument("-o", "--out", default=None,
 		help="Path to save output preview image")
-	parser.add_argument("-i", "--instructions-out", default="nh-pattern-instructions.txt",
+	parser.add_argument("-i", "--instructions-out", default=None,
 		help="Path to save pattern instructions")
+	parser.add_argument("-Q", "--qr-out", default=None,
+		help="Path to save QR code. Implies --new-leaf")
 
 	parser.add_argument("-d", "--dithering", action="store_true",
 		help="Use Floyd-Steinberg dithering when creating the pattern")
 
 	parser.add_argument("-w", "--weight-map",
 		help="Map of pixel weights for palette selection")
+
+	parser.add_argument("-L", "--new-leaf", action="store_true",
+		help="Generate a pattern using the New Leaf colour palette instead of the New Horizons"
+			+ "palette. This option also allows a QR code to be generated for the pattern")
 
 	parser.add_argument("-r", "--retry-duplicate", action="store_true",
 		help="Retry palette generation until there are no duplicate colours")
@@ -103,16 +131,47 @@ if __name__ == "__main__":
 	verbosity_group.add_argument("-v", "--verbose", action="store_true",
 		help="Print more debug info to stdout");
 
+	# Debug option: Export the raw QR data to qr.DATA_DUMP_PATH
+	parser.add_argument("--debug-qr-dump", action="store_true",
+		help=argparse.SUPPRESS)
+
 	args = parser.parse_args()
 
 	input_file = getattr(args, "input-file")
 
+	# Handle QR/New Leaf options
+	new_leaf = args.new_leaf
+	qr_out = qr.DEFAULT_PATH
+	if args.qr_out is not None:
+		qr_out = args.qr_out
+		new_leaf = True
+
+	# Fetch preview image filename
+	if args.out is not None:
+		preview_file = args.out
+	elif new_leaf:
+		preview_file = palette.DEFAULT_PREVIEW_FILENAME_NL
+	else:
+		preview_file = palette.DEFAULT_PREVIEW_FILENAME_NH
+
+	# Validate --instructions-out <path>
+	if args.instructions_out == "":
+		sys.stderr.write("Instructions file output path cannot be empty.\n")
+		sys.exit(1)
+	if args.instructions_out and new_leaf:
+		sys.stderr.write("Cannot produce an instructions file for a New Leaf texture. Import using the QR code instead.\n");
+		sys.exit(1)
+
+	instructions_file = args.instructions_out or instructions.DEFAULT_PATH
+
+	# Fetch tty colour options
 	use_colour = Trit.maybe
 	if args.tty_colours:
 		use_colour = Trit.true
 	elif args.no_tty_colours:
 		use_colour = Trit.false
 
+	# Fetch verbosity options
 	verbosity = Log.INFO
 	if args.quiet is not None:
 		verbosity -= args.quiet
@@ -120,11 +179,10 @@ if __name__ == "__main__":
 		verbosity += 1
 
 	try:
-		analyse_img(input_file, weight_map_path=args.weight_map,
-			img_out=args.out, instr_out=args.instructions_out,
-			seed=args.seed, retry_on_dupe=args.retry_duplicate,
-			use_dithering=args.dithering, use_colour=use_colour,
-			verbosity=verbosity);
+		analyse_img(input_file, weight_map_path=args.weight_map, img_out=preview_file, instr_out=instructions_file,
+			qr_out=qr_out,
+			seed=args.seed, retry_on_dupe=args.retry_duplicate, use_dithering=args.dithering, use_colour=use_colour,
+			new_leaf=new_leaf, verbosity=verbosity, qr_dump=args.debug_qr_dump);
 	except FileNotFoundError:
 		sys.stderr.write("File does not exist or is not a valid image\n")
 		sys.exit(1)

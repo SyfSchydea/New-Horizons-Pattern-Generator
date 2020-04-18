@@ -72,6 +72,18 @@ colour. Pixels represented by a lower-case letter should have already been fille
 by a previous colour. The first colour is represented by an `a`, the second colour
 is represented by a `b`, and so on.
 
+## New Leaf Patterns and QR Codes
+
+An alternative way to generate and import patterns is by generating a New Leaf style
+pattern and its QR code. You can turn this feature on by passing the `-L`/`--new-leaf`
+flag. You can also specify the path to which the QR code will be written using the
+`-Q`/`--qr-out`.
+
+Note that this will produce lower-quality patterns, as New Leaf only supports 159
+colours in its palette, vs New Horizons's 6750. The trade-off however is ease of
+importing. Scanning a QR code is much quicker and simpler than manually copying
+the New Horizons pattern in.
+
 ## Algorithm
 
 To choose a palette, the script uses

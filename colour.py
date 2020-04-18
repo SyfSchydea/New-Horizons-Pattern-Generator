@@ -126,9 +126,18 @@ def palette_nh_to_hsv(palette):
 # param palette - Colour palette as array
 # return        - List of duplicate colours
 def get_duplicate_colours(palette):
+	# Allow either a 2d array of colours, or a 1d array of indices
+	array_dims = len(palette.shape)
+	if array_dims > 2:
+		raise ValueError("get_duplicate_colours: parameter should be a 1 or 2 dimension array of colours")
+	elif array_dims == 1:
+		width, = palette.shape
+		palette = palette.reshape((1, width))
+	else:
+		palette = palette.transpose()
+
 	# Sort colours
-	palette_record = np.core.records.fromarrays(
-		palette.transpose(), names="h, s, v")
+	palette_record = np.core.records.fromarrays(palette, names="h, s, v")
 	palette_record.sort()
 
 	# Look for consecutive, identical colours

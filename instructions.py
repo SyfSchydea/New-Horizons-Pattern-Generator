@@ -5,6 +5,9 @@
 from ternary import Trit
 import tty
 
+# Default file path to save instructions files
+DEFAULT_PATH = "nh-pattern-instructions.txt"
+
 # Characters used to represent each colour in ascii output
 DISPLAY_CHARS = "abcdefghijklmnopqrstuvwxyz"
 PREV_FMT = tty.TextFormat(fg=tty.CYAN, faint=True)
