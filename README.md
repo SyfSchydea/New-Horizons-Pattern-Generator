@@ -72,6 +72,12 @@ colour. Pixels represented by a lower-case letter should have already been fille
 by a previous colour. The first colour is represented by an `a`, the second colour
 is represented by a `b`, and so on.
 
+### TTY Colours
+
+The instructions file may be written with TTY colour control codes. This defaults to
+on if the instructions file is being written directly to a console, but may also be
+forced on with `-c`/`--tty-colours` or forced off with `--no-tty-colours`.
+
 ## New Leaf Patterns and QR Codes
 
 An alternative way to generate and import patterns is by generating a New Leaf style
@@ -148,9 +154,3 @@ want to see some more debug information, you can pass the `-v`/`--verbose` flag.
 want to see less information you can pass the `-q`/`--quiet` flag. This flag also stacks
 to hide even more output. Stacking the flag twice (`-qq`) hides info and warnings.
 Stacking the flag three times (`-qqq`) hides info, warnings, and errors.
-
-## TTY Colours
-
-The instructions file may be written with TTY colour control codes. This defaults to
-on if the instructions file is being written directly to a console, but may also be
-forced on with `-c`/`--tty-colours` or forced off with `--no-tty-colours`.
