@@ -6,7 +6,8 @@ import numpy as np
 import cv2
 import pyqrcode
 
-
+# (Debug option) Location to write raw QR data to
+DATA_DUMP_PATH = "pattern-data.acnl"
 
 # Converts a string to utf-16 encoded bytes, in little-endian, with no BOM.
 # Output will be two bytes longer than the specified length due to the null-character placed at the end.
@@ -62,11 +63,13 @@ def export_img(filename, qr):
 # param town_name     - Name of the author's town as a str. Will be truncated if longer than 8 characters.
 # param author_id     - Author's hidden id, as 2 bytes.
 # param town_id       - Author's Town's hidden id, as 2 bytes.
-# param unused_blocks - Bytes to write in unused blocks in the data. Any more than 6 bytes will be ignored.
+# param unused_blocks - Bytes to write in unused blocks in the data. Any more than 10 bytes will be ignored.
 #
-# return - A QR code in the format returned by pyqrcode.create.
+# return - Tuple of:
+#          - The raw QR data as a bytes string.
+#          - A QR code in the format returned by pyqrcode.create.
 def generate(pattern_name, palette, indexed_image, *,
-		author_name="Pttn-Gen", town_name="Python", author_id=[105, 105], town_id=[4, 32], unused_blocks=b"SPNHPG"):
+		author_name="Pttn-Gen", town_name="Python", author_id=[105, 105], town_id=[4, 32], unused_blocks=b"BySyfPNHPG"):
 	data = np.zeros(620, dtype=np.uint8)
 
 	# Pattern name
@@ -75,27 +78,26 @@ def generate(pattern_name, palette, indexed_image, *,
 	# Author Identifier
 	_write_identifier(data, 0x2a, author_id, author_name)
 
-	# TODO: 2 more unused bytes at 0x3e here?
+	# Unused block 2 bytes at 0x3e
+	_write_field(data, 0x3e,  2, unused_blocks[0:2])
 
 	# Author Town Identifier
 	_write_identifier(data, 0x40, town_id, town_name)
 
-	# TODO: 2 more unused bytes at 0x54 here?
-
-	# Unused block 2 bytes at 0x56
-	_write_field(data, 0x56,  2, unused_blocks[0:2])
+	# Unused block 4 bytes at 0x54
+	_write_field(data, 0x54,  4, unused_blocks[2:6])
 
 	# Palette
 	_write_field(data, 0x58, 15, palette)
 
 	# Unused block 2 bytes at 0x67
-	_write_field(data, 0x67,  2, unused_blocks[2:4])
+	_write_field(data, 0x67,  2, unused_blocks[6:8])
 
 	# Pattern Type - 0x09 = Normal pattern
 	_write_field(data, 0x69,  1, 0x09)
 
 	# Unused block 2 bytes at 0x6a
-	_write_field(data, 0x6a,  2, unused_blocks[4:6])
+	_write_field(data, 0x6a,  2, unused_blocks[8:10])
 
 	# Image
 	# The image is stored with 2 pixels per byte.
@@ -115,4 +117,4 @@ def generate(pattern_name, palette, indexed_image, *,
 	byte_data = data.tobytes()
 	qr_code = pyqrcode.create(byte_data, version=19, error="M", mode="binary", encoding="iso-8859-1")
 
-	return qr_code
+	return byte_data, qr_code

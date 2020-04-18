@@ -20,7 +20,8 @@ def get_rng_seed():
 # Pseudo main-method
 # Load image, convert to pattern, output preview and instructions
 def analyse_img(path, weight_map_path, img_out, instr_out, *,
-		seed=None, retry_on_dupe=False, use_dithering=True, use_colour=Trit.maybe, verbosity=Log.INFO, new_leaf=False):
+		seed=None, retry_on_dupe=False, use_dithering=True, use_colour=Trit.maybe, verbosity=Log.INFO, new_leaf=False,
+		qr_dump=False):
 	# NH/NL allow 15 colours + transparent
 	PALETTE_SIZE = 15
 
@@ -73,9 +74,14 @@ def analyse_img(path, weight_map_path, img_out, instr_out, *,
 	if new_leaf:
 		log.info("Generating QR code...")
 		# TODO: Allow user to enter their own Player and Town identifier data.
-		qr_code = qr.generate("Generated pattern", game_palette, indexed_img)
+		qr_bytes, qr_code = qr.generate("Generated pattern", game_palette, indexed_img)
 		# TODO: Allow user to enter QR code filename
 		qr.export_img("pattern-qr.png", qr_code)
+
+		if qr_dump:
+			log.info(f"[DEBUG] Writing QR dump to {qr.DATA_DUMP_PATH}...")
+			with open(qr.DATA_DUMP_PATH, "wb") as f:
+				f.write(qr_bytes)
 	else:
 		log.info("Writing instructions file...")
 		instructions.write(instr_out, indexed_img, game_palette, use_colour=use_colour)
@@ -125,6 +131,10 @@ if __name__ == "__main__":
 	verbosity_group.add_argument("-v", "--verbose", action="store_true",
 		help="Print more debug info to stdout");
 
+	# Debug option: Export the raw QR data to qr.DATA_DUMP_PATH
+	parser.add_argument("--debug-qr-dump", action="store_true",
+		help=argparse.SUPPRESS)
+
 	args = parser.parse_args()
 
 	input_file = getattr(args, "input-file")
@@ -164,7 +174,7 @@ if __name__ == "__main__":
 	try:
 		analyse_img(input_file, weight_map_path=args.weight_map, img_out=preview_file, instr_out=instructions_file,
 			seed=args.seed, retry_on_dupe=args.retry_duplicate, use_dithering=args.dithering, use_colour=use_colour,
-			new_leaf=args.new_leaf, verbosity=verbosity);
+			new_leaf=args.new_leaf, verbosity=verbosity, qr_dump=args.debug_qr_dump);
 	except FileNotFoundError:
 		sys.stderr.write("File does not exist or is not a valid image\n")
 		sys.exit(1)
