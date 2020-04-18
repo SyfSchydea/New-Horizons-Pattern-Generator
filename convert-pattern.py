@@ -19,7 +19,7 @@ def get_rng_seed():
 
 # Pseudo main-method
 # Load image, convert to pattern, output preview and instructions
-def analyse_img(path, weight_map_path, img_out, instr_out, *,
+def analyse_img(path, weight_map_path, img_out, instr_out, qr_out, *,
 		seed=None, retry_on_dupe=False, use_dithering=True, use_colour=Trit.maybe, verbosity=Log.INFO, new_leaf=False,
 		qr_dump=False):
 	# NH/NL allow 15 colours + transparent
@@ -74,9 +74,10 @@ def analyse_img(path, weight_map_path, img_out, instr_out, *,
 	if new_leaf:
 		log.info("Generating QR code...")
 		# TODO: Allow user to enter their own Player and Town identifier data.
+		# TODO: Use image filename as default name
+		# TODO: Allow user to specify pattern name
 		qr_bytes, qr_code = qr.generate("Generated pattern", game_palette, indexed_img)
-		# TODO: Allow user to enter QR code filename
-		qr.export_img("pattern-qr.png", qr_code)
+		qr.export_img(qr_out, qr_code)
 
 		if qr_dump:
 			log.info(f"[DEBUG] Writing QR dump to {qr.DATA_DUMP_PATH}...")
@@ -101,6 +102,8 @@ if __name__ == "__main__":
 		help="Path to save output preview image")
 	parser.add_argument("-i", "--instructions-out", default=None,
 		help="Path to save pattern instructions")
+	parser.add_argument("-Q", "--qr-out", default=None,
+		help="Path to save QR code. Implies --new-leaf")
 
 	parser.add_argument("-d", "--dithering", action="store_true",
 		help="Use Floyd-Steinberg dithering when creating the pattern")
@@ -139,20 +142,27 @@ if __name__ == "__main__":
 
 	input_file = getattr(args, "input-file")
 
+	# Handle QR/New Leaf options
+	new_leaf = args.new_leaf
+	qr_out = qr.DEFAULT_PATH
+	if args.qr_out is not None:
+		qr_out = args.qr_out
+		new_leaf = True
+
 	# Fetch preview image filename
 	if args.out is not None:
 		preview_file = args.out
-	elif args.new_leaf:
+	elif new_leaf:
 		preview_file = palette.DEFAULT_PREVIEW_FILENAME_NL
 	else:
 		preview_file = palette.DEFAULT_PREVIEW_FILENAME_NH
 
 	# Validate --instructions-out <path>
 	if args.instructions_out == "":
-		sys.stderr.write("Instructions file output path cannot be empty\n")
+		sys.stderr.write("Instructions file output path cannot be empty.\n")
 		sys.exit(1)
-	if args.instructions_out and args.new_leaf:
-		sys.stderr.write("Cannot produce an instructions file for a New Leaf texture. Import using the QR code instead\n");
+	if args.instructions_out and new_leaf:
+		sys.stderr.write("Cannot produce an instructions file for a New Leaf texture. Import using the QR code instead.\n");
 		sys.exit(1)
 
 	instructions_file = args.instructions_out or instructions.DEFAULT_PATH
@@ -173,8 +183,9 @@ if __name__ == "__main__":
 
 	try:
 		analyse_img(input_file, weight_map_path=args.weight_map, img_out=preview_file, instr_out=instructions_file,
+			qr_out=qr_out,
 			seed=args.seed, retry_on_dupe=args.retry_duplicate, use_dithering=args.dithering, use_colour=use_colour,
-			new_leaf=args.new_leaf, verbosity=verbosity, qr_dump=args.debug_qr_dump);
+			new_leaf=new_leaf, verbosity=verbosity, qr_dump=args.debug_qr_dump);
 	except FileNotFoundError:
 		sys.stderr.write("File does not exist or is not a valid image\n")
 		sys.exit(1)

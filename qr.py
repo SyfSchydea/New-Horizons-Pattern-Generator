@@ -6,6 +6,9 @@ import numpy as np
 import cv2
 import pyqrcode
 
+# Default location to write the QR image
+DEFAULT_PATH = "pattern-qr.png"
+
 # (Debug option) Location to write raw QR data to
 DATA_DUMP_PATH = "pattern-data.acnl"
 
