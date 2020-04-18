@@ -11,6 +11,7 @@ import colour
 import palette
 from log import Log
 import instructions
+import qr
 
 def get_rng_seed():
 	np.random.seed()
@@ -69,13 +70,19 @@ def analyse_img(path, weight_map_path, img_out, instr_out, *,
 	log.debug("Indexed img:\n", indexed_img)
 
 	# Print drawing instructions
-	if not new_leaf:
+	if new_leaf:
+		log.info("Generating QR code...")
+		# TODO: Allow user to enter their own Player and Town identifier data.
+		qr_code = qr.generate("Generated pattern", game_palette, indexed_img)
+		# TODO: Allow user to enter QR code filename
+		qr.export_img("pattern-qr.png", qr_code)
+	else:
 		log.info("Writing instructions file...")
 		instructions.write(instr_out, indexed_img, game_palette, use_colour=use_colour)
 
 	# Generate BGR image using colour map and the BGR version of the approximated colour space
 	# Export approximated image
-	log.info("Exporting image...")
+	log.info("Exporting preview image...")
 	palette.output_preview_image(img_out, indexed_img, bgr_approx)
 
 

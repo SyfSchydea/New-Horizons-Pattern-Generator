@@ -25,8 +25,8 @@ def _utf16_bytes(text, length):
 # Writes a field in the pattern data.
 def _write_field(pattern_data, offset, length, value):
 	# NumPy doesn't like assigning bytes objects to uint8 arrays, so convert them to a list of ints here.
-	if isinstance(author_id, bytes):
-		author_id = [b for b in author_id]
+	if isinstance(value, bytes):
+		value = [b for b in value]
 
 	pattern_data[offset : offset + length] = value
 
@@ -34,10 +34,10 @@ def _write_field(pattern_data, offset, length, value):
 # These types of identifiers are used to represent players and towns.
 def _write_identifier(pattern_data, offset, id, name):
 	_write_field(pattern_data, offset,        2, id)
-	_write_field(pattern_data, offset + 0x2, 18, utf16_bytes(name, 8))
+	_write_field(pattern_data, offset + 0x2, 18, _utf16_bytes(name, 8))
 
 # Convert pattern data to writable image data which OpenCV can use.
-def _to_img(qr):
+def to_img(qr):
 	BORDER_SIZE = 3
 
 	pixels = (1 - np.array(qr.code, dtype=np.uint8)) * 255
@@ -48,14 +48,14 @@ def _to_img(qr):
 
 	return image
 
-# Export QR as image
-def _export_img(filename, qr):
-	cv2.imwrite(filename, _to_img(qr))
+# Export an already-generated QR as an image.
+def export_img(filename, qr):
+	cv2.imwrite(filename, to_img(qr))
 
 # Create a QR code.
 #
 # param pattern_name  - Name of the pattern as a str. Will be truncated if longer than 20 characters.
-# param palette       - Pattern as iterable of 15 New Leaf palette ids.
+# param palette       - Colour palette as iterable of 15 New Leaf palette ids.
 # param indexed_image - 32*32 array of indices for each pixel in the image. Note that these indices are values
 #                       0-14, indexing the given palette, not indices to New Leaf's global palette.
 # param author_name   - Name of the author as a str. Will be truncated if longer than 8 characters.
@@ -65,12 +65,12 @@ def _export_img(filename, qr):
 # param unused_blocks - Bytes to write in unused blocks in the data. Any more than 6 bytes will be ignored.
 #
 # return - A QR code in the format returned by pyqrcode.create.
-def _generate_qr(pattern_name, palette, indexed_image, *,
+def generate(pattern_name, palette, indexed_image, *,
 		author_name="Pttn-Gen", town_name="Python", author_id=[105, 105], town_id=[4, 32], unused_blocks=b"SPNHPG"):
 	data = np.zeros(620, dtype=np.uint8)
 
 	# Pattern name
-	_write_field(data, 0x00, 42, utf16_bytes(pattern_name, 20))
+	_write_field(data, 0x00, 42, _utf16_bytes(pattern_name, 20))
 
 	# Author Identifier
 	_write_identifier(data, 0x2a, author_id, author_name)
@@ -89,13 +89,13 @@ def _generate_qr(pattern_name, palette, indexed_image, *,
 	_write_field(data, 0x58, 15, palette)
 
 	# Unused block 2 bytes at 0x67
-	_write_field(data, 0x67,  2, hidden_text[2:4])
+	_write_field(data, 0x67,  2, unused_blocks[2:4])
 
 	# Pattern Type - 0x09 = Normal pattern
 	_write_field(data, 0x69,  1, 0x09)
 
 	# Unused block 2 bytes at 0x6a
-	_write_field(data, 0x6a,  2, hidden_text[4:6])
+	_write_field(data, 0x6a,  2, unused_blocks[4:6])
 
 	# Image
 	# The image is stored with 2 pixels per byte.
@@ -112,7 +112,7 @@ def _generate_qr(pattern_name, palette, indexed_image, *,
 	_write_field(data, 0x6c, HEIGHT * WIDTH // 2, encoded_pixels)
 
 	# Convert data to QR
-	byte_data = pattern_data.tobytes()
+	byte_data = data.tobytes()
 	qr_code = pyqrcode.create(byte_data, version=19, error="M", mode="binary", encoding="iso-8859-1")
 
-	return data, qr_code
+	return qr_code
