@@ -69,13 +69,13 @@ class TextFormat:
 
 		return self.fg_set, self.fg
 
-	def fg_matches(self, other_fg):
+	def fg_matches(self, other_fg, other_fg_set=Trit.true):
 		fg_set, fg = self.get_fg()
 
-		if not self.fg_set.known:
+		if not self.fg_set.known or not other_fg_set.known:
 			return False
 
-		return bool(fg_set) and self.fg == sanitise_fg(other_fg)
+		return fg_set == other_fg_set and self.fg == sanitise_fg(other_fg)
 
 	def set_fg(self, fg):
 		self.fg = sanitise_fg(fg)
@@ -92,7 +92,9 @@ class TextFormat:
 		if not isinstance(other, TextFormat):
 			return False
 
-		return (self.fg_matches(other.fg)
+		other_fg_set, other_fg = other.get_fg()
+
+		return (self.fg_matches(other.fg, other_fg_set)
 			and self.bold.definitely_equals(other.bold)
 			and self.faint.definitely_equals(other.faint))
 
