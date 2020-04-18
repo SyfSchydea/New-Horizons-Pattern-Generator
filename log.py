@@ -1,6 +1,12 @@
 #!/bin/python3
 
 import sys
+import tty
+
+ERROR_FORMAT   = tty.TextFormat(fg=tty.RED)
+WARNING_FORMAT = tty.TextFormat(fg=tty.YELLOW)
+INFO_FORMAT    = tty.TextFormat()
+DEBUG_FORMAT   = tty.TextFormat(fg=tty.CYAN)
 
 # Class for controlling logging and verbosity levels
 class Log:
@@ -12,27 +18,36 @@ class Log:
 
 	def __init__(self, verbosity=INFO, file=sys.stdout):
 		self.verbosity = verbosity
-		self.file = file
+		self.file = tty.TTY(file)
+		self.err_tty = tty.TTY(sys.stderr)
+
+	def _print(self, file, msg, fmt):
+		msg_text = " ".join(str(s) for s in msg) + "\n"
+		file.write(tty.FormattedString(msg_text, fmt))
+		if file is self.file:
+			self.err_tty.refresh_fmt()
+		else:
+			self.file.refresh_fmt()
 
 	# Log information about something which prevents
 	# the script from completing normally.
 	def error(self, *msg):
 		if self.verbosity >= Log.ERROR:
-			print(*msg, file=sys.stderr)
+			self._print(self.err_tty, msg, ERROR_FORMAT)
 
 	# Log information about something which may be undesirable,
 	# but doesn't stop the script from continuing.
 	def warn(self, *msg):
 		if self.verbosity >= Log.WARNING:
-			print("Warning:", *msg, file=self.file)
+			self._print(self.file, ["Warning:", *msg], WARNING_FORMAT)
 
 	# Log information about what the script is doing.
 	def info(self, *msg):
 		if self.verbosity >= Log.INFO:
-			print(*msg, file=self.file)
+			self._print(self.file, msg, INFO_FORMAT)
 
 	# Log information which may be useful for debugging,
 	# but the end-user typically doesn't need to see.
 	def debug(self, *msg):
 		if self.verbosity >= Log.DEBUG:
-			print(*msg, file=self.file)
+			self._print(self.file, msg, DEBUG_FORMAT)
