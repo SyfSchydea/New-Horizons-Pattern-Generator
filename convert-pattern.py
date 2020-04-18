@@ -73,9 +73,6 @@ def analyse_img(path, weight_map_path, img_out, instr_out, qr_out, *,
 	# Print drawing instructions
 	if new_leaf:
 		log.info("Generating QR code...")
-		# TODO: Allow user to enter their own Player and Town identifier data.
-		# TODO: Use image filename as default name
-		# TODO: Allow user to specify pattern name
 		qr_bytes, qr_code = qr.generate("Generated pattern", game_palette, indexed_img)
 		qr.export_img(qr_out, qr_code)
 
