@@ -106,7 +106,7 @@ def find_closest(item, centers):
 	best_distance = float("inf")
 
 	for i, center in enumerate(centers):
-		distance = colour.lab_distance(item, center)
+		distance = colour.delta_e_2k_squared(item, center)
 
 		if distance < best_distance:
 			best_distance = distance
@@ -143,14 +143,13 @@ def k_means_pp_init(items, k, rng):
 		for item_idx in range(n):
 			# Update item distance
 			item = items[item_idx]
-			dist = colour.lab_distance(item, prev_center)
+			dist = colour.delta_e_2k_squared(item, prev_center)
 			if dist < item_distances[item_idx]:
 				item_distances[item_idx] = dist
 
 		# Choose next center using weights equal to the
 		# square of the distance to the nearest point.
-		weights = item_distances ** 2
-		weights = weights / sum(weights)
+		weights = item_distances / sum(item_distances)
 		idx = rng.choice(range(n), p=weights)
 		centers[center_idx] = items[idx]
 
@@ -344,6 +343,10 @@ def pick_palette(img, palette_size, seed, weight_map=None, *, retry_on_dupe=Fals
 
 		seed += 1
 		log.info("Palette has duplicate colours. Retrying with seed:", seed)
+		if new_leaf:
+			log.debug("Repeated colours in palette:", *[hex(c[0]) for c in duplicate_colours])
+		else:
+			log.debug("Repeated colours in palette:", *duplicate_colours)
 
 # Write a preview of the pattern to a file.
 # Expects the palette to already be converted to BGR from 0 to 1.

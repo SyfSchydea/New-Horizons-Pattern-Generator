@@ -2,6 +2,8 @@
 
 # Functions relating to colour spaces and conversions
 
+import math
+
 import numpy as np
 import cv2
 
@@ -20,14 +22,132 @@ HSV_S_MAX =   1
 HSV_V_MAX =   1
 
 # Distance between two Lab colours.
-# Currently just euclidean distance.
+# Experimenting with using Delta E* 2000.
 #
 # param colour_a - First colour to compare.
 # param colour_b - Second colour to compare.
 #
 # return         - Distance between the two colours.
 def lab_distance(colour_a, colour_b):
-	return np.linalg.norm(colour_a - colour_b)
+	return math.sqrt(delta_e_2k_squared(colour_a, colour_b))
+
+# Calculate Chroma (C*) from a* and b* values.
+def _chroma(a, b):
+	return math.sqrt(a * a + b * b)
+
+# Calculate Hue (h*) from a* and b* values.
+def _hue(a, b):
+	if a == 0 and b == 0:
+		return 0
+
+	hue = math.atan2(b, a)
+
+	# math.atan2 returns in the range -pi to pi radians.
+	# But we need to convert to 0 to 360 degrees.
+	if hue < 0:
+		hue += math.tau
+	
+	return hue / math.tau * 360
+
+# Sine in degrees
+def _sin(x):
+	return math.sin(x / 360 * math.tau)
+
+# Cosine in degrees
+def _cos(x):
+	return math.cos(x / 360 * math.tau)
+
+# The final step of calculating Delta E* is to take a square root. However this is a relatively expensive
+# operation, and for many cases, unnecessary. So it is preferable to used this "squared" function where possible.
+#
+# This function was written using the Wikipedia page on the subject as reference. As such the variable
+# name may make little sense out of context, but relate to the variables used on that page.
+# https://en.wikipedia.org/wiki/Color_difference#CIEDE2000
+def delta_e_2k_squared(colour_a, colour_b):
+	# Unpack Lab values
+	L_1, a_1, b_1 = colour_a
+	L_2, a_2, b_2 = colour_b
+
+	# L-prime - Lightness
+	delta_L_prime = L_2 - L_1
+	mean_L_prime = (L_1 + L_2) / 2
+
+	# C* - Chroma
+	C_1 = _chroma(a_1, b_1)
+	C_2 = _chroma(a_2, b_2)
+	mean_C = (C_1 + C_2) / 2
+
+	# Evaluate coefficient used in a prime calculations to adjust for chromaticity
+	mean_c_7 = mean_C ** 7
+	c_coeff = math.sqrt(mean_c_7 / (mean_c_7 + 25 ** 7))
+	c_coeff = (3 - c_coeff) / 2
+
+	a_prime_1 = a_1 * c_coeff
+	a_prime_2 = a_2 * c_coeff
+
+	# C-prime - Adjusted Chroma
+	C_prime_1 = _chroma(a_prime_1, b_1)
+	C_prime_2 = _chroma(a_prime_2, b_2)
+
+	mean_C_prime = (C_prime_1 + C_prime_2) / 2
+	delta_C_prime = C_prime_2 - C_prime_1
+
+	# h-prime - Adjusted Hue
+	h_prime_1 = _hue(a_prime_1, b_1)
+	h_prime_2 = _hue(a_prime_2, b_2)
+
+	# Difference in Hue (delta-h-prime)
+	# TODO: A lot of the conditionals in the calculations for delta and mean hue are the same. Merge them together
+	hue_acute = abs(h_prime_1 - h_prime_2) <= 180
+	if C_prime_1 == 0 or C_prime_2 == 0:
+		delta_h_prime = 0
+	else:
+		delta_h_prime = h_prime_2 - h_prime_1
+		if hue_acute:
+			pass
+		elif h_prime_2 <= h_prime_1:
+			delta_h_prime += 360
+		else:
+			delta_h_prime -= 360
+	
+	delta_H_prime = 2 * math.sqrt(C_prime_1 * C_prime_2) * _sin(delta_h_prime / 2)
+
+	# Mean Hue (H-bar)
+	mean_H_prime = h_prime_1 + h_prime_2
+	if hue_acute:
+		pass
+	elif mean_H_prime < 360:
+		mean_H_prime += 360
+	else:
+		mean_H_prime -= 360
+
+	# If either either chroma is 0, use the other colour's hue as the mean hue.
+	if C_prime_1 != 0 and C_prime_2 != 0:
+		mean_H_prime /= 2
+
+	T = (1 - 0.17 * _cos(mean_H_prime     - 30)
+	       + 0.24 * _cos(mean_H_prime * 2     )
+	       + 0.32 * _cos(mean_H_prime * 3 +  6)
+	       - 0.20 * _cos(mean_H_prime * 4 - 63))
+
+	L_squared = (mean_L_prime - 50) ** 2
+	S_L = 1 + 0.015 * L_squared / math.sqrt(20 + L_squared)
+	S_C = 1 + 0.045 * mean_C_prime
+	S_H = 1 + 0.015 * mean_C_prime * T
+
+	mean_c_prime_7 = mean_C_prime ** 7
+	R_T = -2 * math.sqrt(mean_c_prime_7 / (mean_c_prime_7 + 25 ** 7)) * _sin(60 * math.exp(-((mean_H_prime - 275) / 25) ** 2))
+
+	lightness_dist = delta_L_prime / S_L
+	chroma_dist    = delta_C_prime / S_C
+	hue_dist       = delta_H_prime / S_H
+
+	d_e_squared = (hue_dist ** 2
+	             + chroma_dist ** 2
+	             + hue_dist ** 2
+	             + R_T * chroma_dist * hue_dist)
+
+	return d_e_squared
 
 # Convert a colour palette to a different colour space.
 #
