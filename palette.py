@@ -287,6 +287,40 @@ def create_indexed_img_dithered(img, palette):
 
 	return indexed
 
+# Attempt to find an exact palette for the image. This will only succeed if the list of colours has `max_size`
+# unique colours or fewer. If there are more unique colours, this operation is impossible, and the function will
+# return None.
+#
+# param colours  - NumPy array of colours
+# param max_size - Maximum number of colours allowed in the palette
+#
+# return         - NumPy array of palette colours if possible, or None if not.
+def find_small_palette(colours, max_size=15):
+	_, depth = colours.shape
+	palette = []
+
+	# Iterate through each colour in the image
+	for col in colours:
+		found_colour = False
+
+		for palette_colour in palette:
+			if np.array_equal(col, palette_colour):
+				found_colour = True
+				break
+
+		if found_colour:
+			continue
+
+		# If this colour is not yet in the palette, add it
+		palette.append(col)
+
+		# If this makes the palette too big, this image has too many
+		# colours to produce an exact palette, so return None here.
+		if len(palette) > max_size:
+			return None
+
+	return np.array(palette)
+
 # Take an image in Lab colour space, and output a colour palette in NH colours
 #
 # param img           - Input Lab image.
@@ -303,6 +337,21 @@ def pick_palette(img, palette_size, seed, weight_map=None, *, retry_on_dupe=Fals
 	log.info("Finding suitable colour palette...")
 	height, width, depth = img.shape
 	colours = img.reshape((height * width, depth))
+
+	small_palette = find_small_palette(colours, 15)
+	if small_palette is not None:
+		log.info("Found exact palette")
+		log.debug("Palette: \n", small_palette)
+
+		hsv_palette = colour.convert_palette(small_palette, cv2.COLOR_Lab2RGB, cv2.COLOR_RGB2HSV)
+		nh_palette = colour.palette_hsv_to_nh(hsv_palette)
+		log.debug("NH Palette:\n", nh_palette)
+
+		duplicate_colours = colour.get_duplicate_colours(nh_palette)
+		if len(duplicate_colours) > 0:
+			log.warn("Repeated colours in palette:", *duplicate_colours)
+
+		return nh_palette, small_palette
 
 	if weight_map is not None:
 		weight_map = weight_map.reshape(height * width)
